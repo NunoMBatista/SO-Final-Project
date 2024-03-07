@@ -1,0 +1,81 @@
+Available in POSIX
+Lighter and faster than processes, share resources.
+
+When any of the threads call exec(), the calling process is completely replaced.
+When a multithread calls fork(), the child process duplicates the calling thread only, not the entire process.
+
+Compiling with threads:
+    gcc -lpthread -D_REENTRANT -Wall program.c -o program
+        -D_REENTRANT: tells the compiler to use the reentrant version of the library
+        -lpthread: links the program with the pthread library
+
+        (A reentrant function can be called by multiple threads at the same time)
+
+
+If any of the threads calls exit or the main thread performs a return in the main function, all threads are terminated.
+
+Create a thread:
+    int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg);
+        thread: pointer to a pthread_t structure
+        attr: pointer to a pthread_attr_t structure
+            If NULL, default attributes are used 
+        start_routine: pointer to the function to be called
+        arg: argument to be passed to the function
+            If multiple arguments are needed, arg should point to a struct
+
+Terminate current thread and pointer to a value:
+    void pthread_exit(void *value_ptr);
+        value_ptr: pointer to a value to be returned by the thread
+        if the main thread calls pthread_exit, the other threads are not terminated
+
+Cancel a thread returns immediatly, then the target thread is canceled when it can be:
+    int pthread_cancel(pthread_t thread);
+
+Wait for a thread to terminate:
+    int pthread_join(pthread_t thread, void **value_ptr);
+        value_ptr: pointer to a value returned by the thread, If NULL, the value is discarded
+
+Return current thread's ID:
+    pthread_t pthread_self(void); 
+
+Detatch a thread (it can't be joined and the system will automatically reclaim its resources when it terminates):
+    int pthread_detach(pthread_t thread);
+
+
+Ways of syncronizing threads:
+
+POSIX Semaphores:
+    Signal events across threads
+    Used to count objects in a synchronized way
+
+Condition variables:
+    Allow a thread to block or notify other threads when a condition is met
+    Semaphores are like condition variables with condition beeing: if(value > 0)
+
+Mutexes:
+    Provide mutual exclusion zones between threads, processes can also use them 
+    Similar to binary semaphore but the thread that locks the mutex must unlock it (like a key to a room that you take inside with you)
+
+    Initialize mutex:
+        int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);
+            mutex: pointer to a pthread_mutex_t structure
+            attr: pointer to a pthread_mutexattr_t structure
+                If NULL, default attributes are used
+
+    Declare and create mutex with default atributes (macro):
+        phread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;
+
+    Lock a mutex:
+        int pthread_mutex_lock(pthread_mutex_t *mutex);
+    
+    Unlock a mutex:
+        int pthread_mutex_unlock(pthread_mutex_t *mutex);
+
+    Try to lock mutex:
+        int pthread_mutex_trylock(pthread_mutex_t *mutex);
+            Returns 0 if the mutex was locked, EBUSY if it was already locked
+
+    Destroy mutex: 
+        int pthread_mutex_destroy(pthread_mutex_t *mutex);
+
+    

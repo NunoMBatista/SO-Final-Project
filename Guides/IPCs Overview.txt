@@ -1,0 +1,18 @@
+IPCs introduced by SystemV (UNIX version):
+    Message Queues - pass messages between processes
+    Semaphores - synchronize access to shared resources
+    Shared Memory - share memory between processes
+
+Shell commands:
+    ipcs - show available SystemV IPCs
+    ipcs -l - show system's limits
+    ipcrm - deletes user owned IPC objects
+    visible at /proc/sysvipc
+
+POSIX IPCs:
+    Also implements message queues, semaphores, and shared memory but more flexible and easier to use than SystemV IPCs
+    Visible at /dev/shm
+
+SysV IPCs are supported on nearly every UNIX-like system, while POSIX IPCs are not as widely supported
+
+

@@ -1,0 +1,110 @@
+A semaphore is a syncronization object
+
+Control operations:
+    wait() - if a semaphore is positive, decreent it and continue, else, block until it is positive
+    post() - increment the semaphore value if there was a thread blocked on it, wake it up
+
+SystemV (WORKS WITH PROCESSES ONLY):
+    Create a set of semaphores or get an existing one:
+        semget(key_t key, int nsems, int semflg)
+            key: key to identify the semaphore
+            nsems: number of semaphores in the set
+            semflg: 
+                IPC_CREAT - create the semaphore if it does
+                IPC_EXCL - fail if the semaphore already exists
+                IPC_NOWAIT - fail if the semaphore is not available
+
+    Control the semaphore:
+        semctl(int semid, int semnum, int cmd, ...)
+            semid: id of the semaphore set
+            semnum: index of the semaphore in the set
+            cmd: 
+                GETVAL - get the value of the semaphore
+                SETVAL - set the value of the semaphore
+                IPC_RMID - remove the semaphore set
+                IPC_STAT - get the status of the semaphore set
+                IPC_SET - set the status of the semaphore set
+                GETALL - get the values of all the semaphores in the set
+                SETALL - set the values of all the semaphores in the set
+                GETNCNT - get the number of processes waiting for the semaphore to be positive
+                GETPID - get the pid of the last process that performed a control operation on the semaphore
+                GETVAL - get the value of the semaphore
+                GETZCNT - get the number of processes waiting for the semaphore to be zero
+    
+    Perform operations on the semaphore:
+        semop(int semid, struct sembuf *sops, unsigned nsops)
+            semid: id of the semaphore set
+            sops: array of sembuf structures
+                struct sembuf {
+                    short sem_num; // index of the semaphore in the set
+                    short sem_op; // operation to perform
+                    short sem_flg; // flags
+                }
+                sem_op:
+                    > 0 - increment the semaphore
+                    < 0 - decrement the semaphore
+                    = 0 - wait until the semaphore is zero
+                sem_flg:
+                    IPC_NOWAIT - fail if the semaphore is not available
+            nsops: number of operations to perform
+
+        semtimeop(int semid, struct sembuf *sops, unsigned nsops, struct timespec *timeout)
+            semid: id of the semaphore set
+            sops: array of sembuf structures
+            nsops: number of operations to perform
+            timeout: maximum time to wait for the semaphore to be available
+    
+    There is a simpler implementation by the semlib library:
+        Compiler option: gcc -Wall prog.c semlib.c -o prog
+        Functions:
+            int sem_get(int nsem, int init_val);
+            void sem_close(int semid);
+            void sem_wait(int semid);
+            coid sem_post(int semid);
+            void sem_setvalue(int semid, int semnum, int value);
+         
+            
+
+POSIX (WORKS WITH THREADS AND PROCESSES):
+    Can be named or unamed:
+        Named: referenced by a name in the file system
+        Unnamed: referenced by a pointer in the memory
+
+    Unnamed:
+        Basic functions (return 0 on success and -1 on failure):
+            int sem_post(sem_t *sem);
+            int sem_wait(sem_t *sem);
+            int sem_trywait(sem_t *sem); - fail if the semaphore is not available
+            int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout); - fail if the semaphore is not available after the timeout
+                abs_timeout: absolute time to wait for the semaphore to be available
+            int sem_getvalue(sem_t, int *sval); - sval stores value of the semaphore
+            int sem_destroy(sem_t *sem); 
+
+        Initialize semaphore at the address pointed by sem:
+            int sem_init(sem_t *sem, int pshared, unsigned int value);
+                sem: pointer to the semaphore
+                pshared: 
+                    0 - semaphore is shared between threads of the same process
+                    != 0 - semaphore is shared between processes
+                value: initial value of the semaphore
+
+    Named (created in a virtual file system in /dev/shm):
+        Create semaphore (returns the address of the new semaphore, return SEM_FAILED on failure):
+            sem_t *sem_open(const char *name, int oflag);
+                name: name of the semaphore
+                oflag: 
+                    O_CREAT - create the semaphore if it does
+                    O_EXCL - fail if the semaphore already exists
+                    O_RDWR - open the semaphore for reading and writing
+                    O_RDONLY - open the semaphore for reading
+                    O_WRONLY - open the semaphore for writing
+                    O_TRUNC - remove the semaphore if it already exists
+            sem_t *sem_open(const char *name, int oflag, mode_t mode, unsigned int value);
+                mode: permissions of the semaphore
+                value: initial value of the semaphore
+
+        Close semaphore: 
+            int sem_close(sem_t *sem);
+
+        Delete semaphore:
+            int sem_unlink(const char *name);

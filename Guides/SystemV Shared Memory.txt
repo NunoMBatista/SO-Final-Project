@@ -1,0 +1,31 @@
+Get identifier to an existing shared memory segment or create a new one:
+    int shmget(key_t key, int size, int flags)
+        key: Unique identifier of the shared memory segment (ICP_PRIVATE is used to create a new segment)
+        size: size of segment in bytes (ignored when the segment already exists)
+        flags (can be combined with bitwise OR): 
+            IPC_CREAT: Create a new segment
+            IPC_EXCL: Return an error if the segment already exists
+            IPC_CREAT | IPC_EXCL: Create a new segment and return an error if it already exists
+            0777 | IPC_CREAT: Octal permissions for the segment (read, write and execute respectively)
+ 
+Variety of control operations on a shared memory segment:
+    int shmctl(int shmid, int cmd, struct shmid_ds *buf)
+        shmid: Identifier of the shared memory segment
+        cmd: Command to execute
+            IPC_RMID: Remove the segment
+            IPC_STAT: Get the status of the segment
+            IPC_SET: Set the status of the segment
+        buf: Pointer to a shmid_ds structure (ignored when cmd is IPC_RMID)
+
+Map a memory region into the current process address space:
+    void *shmat(int shmid, const void *addr, int flags)
+        shmid: Identifier of the shared memory segment
+        addr: Address where the segment should be mapped (NULL means the system will choose an address)
+        flags: 
+            SHM_RDONLY: Read-only access
+            0: Read-write access
+
+Unmap memory region from the current process address space:
+    int shmdt(const void *addr)
+        addr: Address of the segment to unmap
+

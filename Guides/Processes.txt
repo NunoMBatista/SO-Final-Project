@@ -1,0 +1,34 @@
+Create processes:
+    pid_t fork(); - returns 0 to the child process and the child's PID to the parent process
+
+Get current process's ID:
+    pid_t getpid();
+
+Get parent process's ID:
+    pid_t getppid();
+
+Wait until a child process (any child) exits:
+    pid_t wait(int *status); - the children's exit status is set in the status variable, if it's not NULL (returns -1 in case of an error)
+
+Wait until a specific child process exits:
+    pid_t waitpid(pid_t pid, int *status, int options);
+    The options can be 0 or a combination (bitwise OR) of:
+        WNOHANG: If no child has already exited, returns immediately with a return value of 0
+        WUNTRACED: Return if a child has stopped (but not traced via ptrace)
+        WCONTINUED: Return if a stopped child has been resumed by delivery of SIGCONT
+
+A process is only eliminated by the OS when it's father calls wait/waitpid.
+
+When a parent process of a child exits, the child's parent usually becomes PID = 1
+
+Make a process become another executable entirely:
+    int execl(const char *path, const char *arg0, ...); - Execute code from a specific path, the last argument must be NULL
+    int execlp(const char *file, const char *arg0, ...); - Execute code from a file in the PATH environment variable
+    int execle(const char *path, const char *arg0, ..., char *const envp[]); - Execute code from a specific path, with a custom environment
+    int execv(const char *path, char *const argv[]); - Execute code from a specific path, the last argument must be NULL
+    int execvp(const char *file, char *const argv[]); - Execute code from a file in the PATH environment variable
+    int execve(const char *path, char *const argv[], char *const envp[]); - Execute code from a specific path, with a custom environment
+
+Check current processes in linux:
+    ps -ef - Every process
+    ps -ef | grep user - Every process from user 

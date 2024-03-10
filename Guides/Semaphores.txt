@@ -72,8 +72,8 @@ POSIX (WORKS WITH THREADS AND PROCESSES):
 
     Unnamed:
         Basic functions (return 0 on success and -1 on failure):
-            int sem_post(sem_t *sem);
-            int sem_wait(sem_t *sem);
+            int sem_post(sem_t *sem); - increment the semaphore
+            int sem_wait(sem_t *sem); - decrement the semaphore
             int sem_trywait(sem_t *sem); - fail if the semaphore is not available
             int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout); - fail if the semaphore is not available after the timeout
                 abs_timeout: absolute time to wait for the semaphore to be available

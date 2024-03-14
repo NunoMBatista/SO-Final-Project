@@ -20,7 +20,6 @@ typedef struct
     MobileUserData data[MAX_USER_CAPACITY];
 } SharedMemory;
 
-// vê início da página 9 para entenderes
 typedef struct{
     int QUEUE_POS; // Number of queue slots
     int AUTH_SERVERS_MAX; // Max number of auth engines

@@ -8,9 +8,6 @@ typedef struct
 {
     int userID;
     int plafond;
-    int deltaVideo;
-    int deltaMusic;
-    int deltaSocial;
 } MobileUserData;
 
 // Shared memory for mobile user data

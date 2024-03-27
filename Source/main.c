@@ -4,20 +4,18 @@
 #include <unistd.h> // fork
 #include <stdio.h>
 #include <stdlib.h> // exit
+#include <sys/wait.h> // wait
 #include "global.h"
 
 sem_t *mobileUserMutex;
 int shmID;
 
-void addUserToSharedMemory(SharedMemory* shMem, int userID, int plafond, int deltaVideo, int deltaMusic, int deltaSocial)
+void addUserToSharedMemory(SharedMemory* shMem, int userID, int plafond)
 {
     if (shMem->numUsers < MAX_USER_CAPACITY)
     {
         shMem->data[shMem->numUsers].userID = userID;
         shMem->data[shMem->numUsers].plafond = plafond;
-        shMem->data[shMem->numUsers].deltaVideo = deltaVideo;
-        shMem->data[shMem->numUsers].deltaMusic = deltaMusic;
-        shMem->data[shMem->numUsers].deltaSocial = deltaSocial;
         shMem->numUsers++;
     }
 }
@@ -27,9 +25,8 @@ void printSharedMemory(SharedMemory* shMem)
     printf("Number of users: %d\n", shMem->numUsers);
     for (int i = 0; i < shMem->numUsers; i++)
     {
-        printf("User %d: plafond=%d, deltaVideo=%d, deltaMusic=%d, deltaSocial=%d\n",
-               shMem->data[i].userID, shMem->data[i].plafond, shMem->data[i].deltaVideo,
-               shMem->data[i].deltaMusic, shMem->data[i].deltaSocial);
+        printf("User %d: plafond=%d\n",
+               shMem->data[i].userID, shMem->data[i].plafond);
     }
 }
 
@@ -77,10 +74,10 @@ int main(void){
     if(fork() == 0){ 
         // Child process
         sem_wait(mobileUserMutex); // wait for the semaphore to be available
-        addUserToSharedMemory(shMem, 3, 300, 40, 50, 60); // add user to shared memory
+        addUserToSharedMemory(shMem, 3, 300); // add user to shared memory
     
         #ifdef DEBUG
-        printf("DEBUG# Process %d added user to shared memory\n", getpid());
+        printf("DEBUG# Process %d added user to shared memory\mn", getpid());
         #endif
  
         sem_post(mobileUserMutex); // release the semaphore
@@ -88,7 +85,7 @@ int main(void){
     } else {
         // Parent process
         sem_wait(mobileUserMutex); // wait for the semaphore to be available
-        addUserToSharedMemory(shMem, 4, 400, 50, 60, 70); // add user to shared memory
+        addUserToSharedMemory(shMem, 4, 400); // add user to shared memory
 
         #ifdef DEBUG 
         printf("DEBUG# Process %d added user to shared memory\n", getpid());
@@ -97,7 +94,8 @@ int main(void){
         sem_post(mobileUserMutex); // release the semaphore
     }
 
-
+    // Wait for child process to finish
+    wait(NULL);
     printSharedMemory(shMem);    
 
     return 0; 

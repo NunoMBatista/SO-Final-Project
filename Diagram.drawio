@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" modified="2024-03-19T18:52:23.390Z" agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0" etag="RU8PMIRb3epA3htxKtgr" version="24.0.5" type="device">
+<mxfile host="app.diagrams.net" modified="2024-03-27T18:53:20.670Z" agent="Mozilla/5.0 (X11; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0" etag="edf7dgqABLkKK67X5fys" version="24.0.7" type="device">
   <diagram name="Page-1" id="FL82TSBoPm-eaRzAIv_8">
-    <mxGraphModel dx="1270" dy="641" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="989" dy="567" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -275,6 +275,18 @@
         </mxCell>
         <mxCell id="Jxll_ePt-7AtNXlNrAwI-100" value="&lt;div&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;Create &lt;/font&gt;&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;html=1;fontSize=24;fontStyle=0;verticalAlign=middle;align=center;rotation=0;" parent="1" vertex="1">
           <mxGeometry x="940" y="82" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fTc552RHnCqsJCtwMoLn-1" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1F1F1F;" vertex="1" parent="1">
+          <mxGeometry x="1022" y="8.620000000000001" width="24" height="40.38" as="geometry" />
+        </mxCell>
+        <mxCell id="fTc552RHnCqsJCtwMoLn-2" value="" style="dashed=0;labelPosition=right;align=left;shape=mxgraph.gmdl.radiobutton;strokeColor=#009587;fillColor=#009587;strokeWidth=2;aspect=fixed;sketch=0;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1026" y="30.999999999999996" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="fTc552RHnCqsJCtwMoLn-3" value="" style="dashed=0;labelPosition=right;align=left;shape=mxgraph.gmdl.radiobutton;strokeColor=#FF0000;fillColor=#FF0000;strokeWidth=2;aspect=fixed;sketch=0;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1026" y="11.759999999999987" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="fTc552RHnCqsJCtwMoLn-5" value="&lt;div&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;Every Process writes to Log &lt;/font&gt;&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;html=1;fontSize=24;fontStyle=0;verticalAlign=middle;align=center;rotation=0;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="53" width="30" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

@@ -1,27 +1,32 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#define DEBUG // remove this line to remove debug messages
-#define MAX_USER_CAPACITY 10
+//#define DEBUG // Comment this line to remove debug messages
 
-typedef struct
-{
-    int userID;
+typedef struct{
+    int user_id;
     int plafond;
 } MobileUserData;
 
 // Shared memory for mobile user data
-typedef struct
-{
+typedef struct{
     int numUsers;
-    MobileUserData data[MAX_USER_CAPACITY];
+    MobileUserData* data; // Later to be allocated with MAX_USER_CAPACITY
 } SharedMemory;
 
 typedef struct{
+    int MOBILE_USERS; // Max number of users
     int QUEUE_POS; // Number of queue slots
-    int AUTH_SERVERS_MAX; // Max number of auth engines
-    int AUTH_PROC_TIM; // Time takne by auth engines to process requests
+    int AUTH_SERVERS; // Max number of auth engines
+    int AUTH_PROC_TIME; // Time takne by auth engines to process requests
     int MAX_VIDEO_WAIT; // Max time a a video request can wait before being processed
     int MAX_OTHERS_WAIT; // Max time a a non-video request can wait before being processed
 } Config;
+
+// External declaration to be used in other files
+extern Config* config;
+extern SharedMemory* shared_memory;
+extern int shm_id;
+extern sem_t* log_semaphore;
+
 #endif

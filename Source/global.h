@@ -18,9 +18,9 @@ typedef struct{
     int MOBILE_USERS; // Max number of users
     int QUEUE_POS; // Number of queue slots
     int AUTH_SERVERS; // Max number of auth engines
-    int AUTH_PROC_TIME; // Time takne by auth engines to process requests
-    int MAX_VIDEO_WAIT; // Max time a a video request can wait before being processed
-    int MAX_OTHERS_WAIT; // Max time a a non-video request can wait before being processed
+    int AUTH_PROC_TIME; // Time taken by auth engines to process requests
+    int MAX_VIDEO_WAIT; // Max time that a video request can wait before being processed
+    int MAX_OTHERS_WAIT; // Max time that a non-video request can wait before being processed
 } Config;
 
 // External declaration to be used in other files

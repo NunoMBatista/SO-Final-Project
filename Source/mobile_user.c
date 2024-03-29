@@ -8,12 +8,16 @@
 #include <sys/types.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <ctype.h>
 #include "global.h"
+#include "system_functions.h"
 
 /*
     Execution instructions:
     ./mobile_user {plafond} {max_requests} {delta_video} {delta_music} {delta_social} {data_ammount}
 */
+
+int is_positive_integer(char *str);
 
 int main(int argc, char *argv[]){
     MobileUserData* user_data;
@@ -27,15 +31,16 @@ int main(int argc, char *argv[]){
 
     // Check if the arguments are all positive integers
     for(int i = 1; i < 7; i++){
-        if(atoi(argv[i]) <= 0){
+        if(!is_positive_integer(argv[i])){
             printf("<ERROR> All arguments must be positive integers\n");
             return 1;
         }
+        
     }
 
     // Read the arguments
     user_data->user_id = getpid();
-    user_data->plafond = atoi(argv[1]);
+    user_data->plafond = atoi(argv[1]); 
     int max_requests = atoi(argv[2]);
     int delta_video = atoi(argv[3]);
     int delta_music = atoi(argv[4]);
@@ -48,4 +53,15 @@ int main(int argc, char *argv[]){
     printf("%s", message);  
 
     return 0; 
+}
+
+int is_positive_integer(char *str) {
+    while (*str) {
+        // idigit is a function that checks if a character is a digit
+        if (isdigit(*str) == 0) {
+            return 0;
+        }
+        str++;
+    }
+    return 1;
 }

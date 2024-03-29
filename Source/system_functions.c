@@ -11,7 +11,6 @@
 #include <time.h>
 #include <signal.h>
 #include "global.h"
-#include "system_functions.h"
 
 void write_to_log(char *message){
     // Check if there is any process using the log file
@@ -159,13 +158,13 @@ int create_monitor_engine(){
 int create_auth_manager(){
     // Create a new process
     #ifdef DEBUG
-    printf("DEBUG# Creating auth engine...\n");
+    printf("DEBUG# Creating auth manager...\n");
     #endif
 
     pid_t pid = fork();
 
     if(pid == -1){
-        write_to_log("<ERROR CREATING AUTH ENGINE>");
+        write_to_log("<ERROR CREATING AUTH MANAGER>");
         return 1;
     }
 

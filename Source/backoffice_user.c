@@ -9,7 +9,7 @@
 #include <semaphore.h>
 #include <signal.h>
 #include "global.h"
-#include "system_functions.h"
+
 /*
     Execution instructions:
     ./backoffice_user

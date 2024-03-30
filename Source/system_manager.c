@@ -42,7 +42,7 @@ int main(int argc, char *argv[]){
 
     // Check correct number of arguments
     if(argc != 2){
-        printf("<INCORRECT NUMBER OF ARGUMENTS>\n Correct usage: ./%s {config_file}\n", argv[0]);
+        printf("<INCORRECT NUMBER OF ARGUMENTS>\n Correct usage: %s {config_file}\n", argv[0]);
         return 1;
     }
 

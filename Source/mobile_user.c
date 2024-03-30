@@ -25,7 +25,7 @@ int main(int argc, char *argv[]){
     
     // Check correct number of arguments
     if (argc != 7){
-        printf("<INCORRECT NUMBER OF ARGUMENTS>\n Correct usage: ./%s {plafond} {max_requests} {delta_video} {delta_music} {delta_social} {data_ammount}\n", argv[0]);
+        printf("<INCORRECT NUMBER OF ARGUMENTS>\n Correct usage: %s {plafond} {max_requests} {delta_video} {delta_music} {delta_social} {data_ammount}\n", argv[0]);
         return 1;
     }
 

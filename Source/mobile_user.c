@@ -1,3 +1,8 @@
+/*
+  Authors: 
+    Nuno Batista uc2022216127
+    Miguel Castela uc2022212972
+*/
 #include <sys/shm.h>
 #include <semaphore.h> // POSIX 
 #include <fcntl.h> // O_CREAT, O_EXCL

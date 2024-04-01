@@ -1,3 +1,8 @@
+/*
+  Authors: 
+    Nuno Batista uc2022216127
+    Miguel Castela uc2022212972
+*/
 #ifndef GLOBAL_H
 #define GLOBAL_H
 

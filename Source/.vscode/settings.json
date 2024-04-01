@@ -59,6 +59,8 @@
   "files.associations": {
     "global.h": "c",
     "signal.h": "c",
-    "fcntl.h": "c"
+    "fcntl.h": "c",
+    "shm.h": "c",
+    "semaphore.h": "c"
   }
 }

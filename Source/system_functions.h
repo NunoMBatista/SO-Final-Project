@@ -1,3 +1,8 @@
+/*
+  Authors: 
+    Nuno Batista uc2022216127
+    Miguel Castela uc2022212972
+*/
 #ifndef SYSTEM_MANAGER_STARTUP_H
 #define SYSTEM_MANAGER_STARTUP_H
 

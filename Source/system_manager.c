@@ -39,7 +39,6 @@ int main(int argc, char *argv[]){
         printf("<ERROR CREATING LOG SEMAPHORE>\n");
         return 1;
     }
-
     write_to_log("5G_AUTH_PLATFORM SIMULATOR STARTING");
 
     // Allocate memory for the config struct
@@ -74,12 +73,12 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-
     add_mobile_user(1, 100);
     add_mobile_user(2, 200);
     add_mobile_user(3, 300);
 
     print_shared_memory();
+
 
     clean_up();
     return 0; 

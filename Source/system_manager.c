@@ -24,22 +24,13 @@
 
 Config* config;
 int shm_id;
-SharedMemory* shared_memory;
+//SharedMemory* shared_memory;
+MobileUserData* shared_memory;
 sem_t* log_semaphore;
+sem_t* shared_memory_sem;
 
 int main(int argc, char *argv[]){
     signal(SIGINT, signal_handler);
-    // Clean up log semaphore if it already exists
-    sem_close(log_semaphore);
-    sem_unlink("log_semaphore");
-    
-    // Create the log semaphore
-    log_semaphore = sem_open("log_semaphore", O_CREAT | O_EXCL, 0777, 1);
-    if(log_semaphore == SEM_FAILED){
-        printf("<ERROR CREATING LOG SEMAPHORE>\n");
-        return 1;
-    }
-    write_to_log("5G_AUTH_PLATFORM SIMULATOR STARTING");
 
     // Allocate memory for the config struct
     config = (Config*) malloc(sizeof(Config));
@@ -50,35 +41,14 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    // Read the config file
-    if(read_config_file(argv[1]) != 0){
-        //printf("<ERROR READING CONFIG FILE>\n");
-        return 1;
-    }
-    
-    if(create_monitor_engine() != 0){
-        //printf("<ERROR CREATING MONITOR ENGINE>\n");
-        return 1;
-    }
-    wait(NULL);
-
-    if(create_auth_manager() != 0){
-        //printf("<ERROR CREATING AUTH ENGINE>\n");
-        return 1;
-    }
-    wait(NULL);
-
-    if(create_shared_memory() != 0){
-        //printf("<ERROR CREATING SHARED MEMORY>\n");
-        return 1;
-    }
+    char *config_file = argv[1];
+    initialize_system(config_file);
 
     add_mobile_user(1, 100);
     add_mobile_user(2, 200);
     add_mobile_user(3, 300);
 
     print_shared_memory();
-
 
     clean_up();
     return 0; 

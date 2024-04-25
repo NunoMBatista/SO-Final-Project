@@ -6,19 +6,15 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-//#define DEBUG // Comment this line to remove debug messages
+#define DEBUG // Comment this line to remove debug messages
+#define LOG_SEMAPHORE "log_semaphore"
+#define SHARED_MEMORY_SEMAPHORE "shared_memory_semaphore"
 
 typedef struct{
     int isActive;
     int user_id;
     int plafond;
 } MobileUserData;
-
-// Shared memory for mobile user data
-typedef struct{
-    int numUsers;
-    MobileUserData* data; // Later to be allocated with MAX_USER_CAPACITY
-} SharedMemory;
 
 typedef struct{
     int MOBILE_USERS; // Max number of users
@@ -31,8 +27,9 @@ typedef struct{
 
 // External declaration to be used in other files
 extern Config* config;
-extern SharedMemory* shared_memory;
+extern MobileUserData* shared_memory;
 extern int shm_id;
 extern sem_t* log_semaphore;
+extern sem_t* shared_memory_sem;
 
 #endif

@@ -216,13 +216,8 @@ int create_shared_memory(){
     }
 
     for(int i = 0; i < config->MOBILE_USERS; i++){
-        shared_memory->data[i].isActive = 0;
+        shared_memory[i].isActive = 0;
     }
-
-    // Initialize shared memory values
-    //shared_memory->numUsers = 0;
-    // Allocate memory for the mobile user data
-    //shared_memory->data = (MobileUserData*) malloc(config->MOBILE_USERS * sizeof(MobileUserData));
 
     #ifdef DEBUG
     printf("DEBUG# Shared memory created successfully\n");
@@ -231,42 +226,78 @@ int create_shared_memory(){
     return 0;
 }
 
-int add_mobile_user(int user_id, int plafond){
-    // Check if the user is already in the shared memory
-    for(int i = 0; i < shared_memory->numUsers; i++){
-        if(shared_memory->data[i].user_id == user_id){
-            write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
-            return 1;
-        }
+int create_semaphores(){
+    #ifdef DEBUG
+    printf("DEBUG# Creating semaphores...\n");
+    #endif
+
+    // Clean up sempahores if they already exist
+    sem_close(log_semaphore);
+    sem_unlink(LOG_SEMAPHORE);
+    sem_close(shared_memory_sem);
+    sem_unlink(SHARED_MEMORY_SEMAPHORE);
+
+    #ifdef DEBUG
+    printf("DEBUG# Creating log semaphore...\n");
+    #endif
+
+    // Create log semaphore
+    log_semaphore = sem_open(LOG_SEMAPHORE, O_CREAT | O_EXCL, 0777, 1);
+    if(log_semaphore == SEM_FAILED){
+        write_to_log("<ERROR CREATING LOG SEMAPHORE>");
+        return 1;
     }
 
-    // Check if the shared memory is full
-    // if(shared_memory->numUsers == config->MOBILE_USERS){
-    //     write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
-    //     return 1;
-    // }
+    #ifdef DEBUG
+    printf("DEBUG# Log semaphore created successfully\n");
+    printf("DEBUG# Creating shared memory semaphore...\n");
+    #endif
+
+    // Create shared memory semaphore
+    shared_memory_sem = sem_open(SHARED_MEMORY_SEMAPHORE, O_CREAT | O_EXCL, 0777, 1);
+    if(shared_memory_sem == SEM_FAILED){
+        write_to_log("<ERROR CREATING SHARED MEMORY SEMAPHORE>");
+        return 1;
+    }
+
+    #ifdef DEBUG
+    printf("DEBUG# Shared memory semaphore created successfully\n");
+    #endif
+
+    return 0;
+}
+
+int add_mobile_user(int user_id, int plafond){
+    #ifdef DEBUG
+    printf("DEBUG# Adding user %d to shared memory\n", user_id);
+    #endif
+    
+    sem_wait(shared_memory_sem); // Lock shared memory semaphore
 
     for(int i = 0; i <= config->MOBILE_USERS; i++){
+
+        // If the loop reaches the end of the shared memory, it means it's full
         if(i == config->MOBILE_USERS){
             write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
             return 1;
         }
-        if(shared_memory->data[i].isActive == 0){
-            shared_memory->data[i].isActive = 1;
-            shared_memory->data[i].user_id = user_id;
-            shared_memory->data[i].plafond = plafond;
-            shared_memory->numUsers++;
+
+        if(shared_memory[i].isActive == 0){
+            // Check if there's a user with the same id already in the shared memory
+            if(shared_memory[i].user_id == user_id){ 
+                write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
+                return 1;
+            }
+
+            shared_memory[i].isActive = 1; // Set user as active
+            shared_memory[i].user_id = user_id;
+            shared_memory[i].plafond = plafond;
             break;
         }
     }
-
-    // // Add user to shared memory 
-    // MobileUserData user_data;
-    // user_data.user_id = user_id;
-    // user_data.plafond = plafond;
-    // shared_memory->data[shared_memory->numUsers] = user_data;
-    // shared_memory->numUsers++;
     
+    sem_post(shared_memory_sem); // Unlock shared memory semaphore
+
     #ifdef DEBUG
     printf("DEBUG# User %d added to shared memory\n", user_id);
     #endif
@@ -279,26 +310,22 @@ int add_mobile_user(int user_id, int plafond){
 }
 
 void print_shared_memory(){
-    printf("Shared memory:\n");
-    printf("\tNumber of users: %d\n", shared_memory->numUsers);
-    for(int i = 0; i < shared_memory->numUsers; i++){
-        printf("\tUser %d: %d\n", shared_memory->data[i].user_id, shared_memory->data[i].plafond);
-    }
+    #ifdef DEBUG
+    printf("DEBUG# Printing current state of the shared memory...\n");
+    #endif
 
+    printf("Shared memory:\n");
     for(int i = 0; i < config->MOBILE_USERS; i++){
-        if(shared_memory->data[i].isActive == 1){
-            printf("\tUser %d: %d\n", shared_memory->data[i].user_id, shared_memory->data[i].plafond);
+        if(shared_memory[i].isActive == 1){
+            printf("\tUser %d has plafond: %d\n", shared_memory[i].user_id, shared_memory[i].plafond);
         }
     }
 }
 
 void clean_up(){
     if(shared_memory != NULL){    
-        // Free shared memory
-        free(shared_memory->data);
         // Detach and delete shared memory
         shmdt(shared_memory);
-        // Delete shared memory
         shmctl(shm_id, IPC_RMID, NULL);
     }
 
@@ -309,9 +336,11 @@ void clean_up(){
     
     write_to_log("5G_AUTH_PLATFORM SIMULATOR CLOSING");
 
-    // Close and unlink log semaphore
+    // Close and unlink semaphores
     sem_close(log_semaphore);
-    sem_unlink("log_semaphore");
+    sem_unlink(LOG_SEMAPHORE);
+    sem_close(shared_memory_sem);
+    sem_unlink(SHARED_MEMORY_SEMAPHORE);
 }
 
 void signal_handler(int signal){
@@ -320,4 +349,42 @@ void signal_handler(int signal){
         clean_up();
         exit(0);
     }
+}
+
+int initialize_system(char* config_file){
+    #ifdef DEBUG
+    printf("DEBUG# Initializing system...\n");
+    #endif
+
+    // Create semaphores
+    if(create_semaphores() != 0){
+        return 1;
+    }
+
+    // Read the config file
+    if(read_config_file(config_file) != 0){
+        return 1;
+    }
+
+    // Create monitor engine
+    if(create_monitor_engine() != 0){
+        return 1;
+    }
+
+    // Create auth manager
+    if(create_auth_manager() != 0){
+        return 1;
+    }
+
+    // Create shared memory
+    if(create_shared_memory() != 0){
+        return 1;
+    }
+
+    #ifdef DEBUG
+    printf("DEBUG# System initialized successfully\n");
+    #endif
+
+    return 0;
+
 }

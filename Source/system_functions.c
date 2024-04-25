@@ -202,23 +202,27 @@ int create_shared_memory(){
     #endif
     
     // Create new shared memory with size of SharedMemory struct and permissions 0777 (rwx-rwx-rwx)
-    shm_id = shmget(IPC_PRIVATE, sizeof(SharedMemory), IPC_CREAT | 0777);
+    shm_id = shmget(IPC_PRIVATE, sizeof(MobileUserData) * config->MOBILE_USERS, IPC_CREAT | 0777);
     if(shm_id == -1){
         write_to_log("<ERROR CREATING SHARED MEMORY>");
         return 1;
     }
 
     // Attach shared memory to shared_memory pointer
-    shared_memory = (SharedMemory*) shmat(shm_id, NULL, 0);
+    shared_memory = (MobileUserData*) shmat(shm_id, NULL, 0);
     if(shared_memory == (void*) -1){
         write_to_log("<ERROR ATTACHING SHARED MEMORY>");
         return 1;
     }
 
+    for(int i = 0; i < config->MOBILE_USERS; i++){
+        shared_memory->data[i].isActive = 0;
+    }
+
     // Initialize shared memory values
-    shared_memory->numUsers = 0;
+    //shared_memory->numUsers = 0;
     // Allocate memory for the mobile user data
-    shared_memory->data = (MobileUserData*) malloc(config->MOBILE_USERS * sizeof(MobileUserData));
+    //shared_memory->data = (MobileUserData*) malloc(config->MOBILE_USERS * sizeof(MobileUserData));
 
     #ifdef DEBUG
     printf("DEBUG# Shared memory created successfully\n");
@@ -237,17 +241,31 @@ int add_mobile_user(int user_id, int plafond){
     }
 
     // Check if the shared memory is full
-    if(shared_memory->numUsers == config->MOBILE_USERS){
-        write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
-        return 1;
+    // if(shared_memory->numUsers == config->MOBILE_USERS){
+    //     write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
+    //     return 1;
+    // }
+
+    for(int i = 0; i <= config->MOBILE_USERS; i++){
+        if(i == config->MOBILE_USERS){
+            write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
+            return 1;
+        }
+        if(shared_memory->data[i].isActive == 0){
+            shared_memory->data[i].isActive = 1;
+            shared_memory->data[i].user_id = user_id;
+            shared_memory->data[i].plafond = plafond;
+            shared_memory->numUsers++;
+            break;
+        }
     }
 
-    // Add user to shared memory 
-    MobileUserData user_data;
-    user_data.user_id = user_id;
-    user_data.plafond = plafond;
-    shared_memory->data[shared_memory->numUsers] = user_data;
-    shared_memory->numUsers++;
+    // // Add user to shared memory 
+    // MobileUserData user_data;
+    // user_data.user_id = user_id;
+    // user_data.plafond = plafond;
+    // shared_memory->data[shared_memory->numUsers] = user_data;
+    // shared_memory->numUsers++;
     
     #ifdef DEBUG
     printf("DEBUG# User %d added to shared memory\n", user_id);
@@ -265,6 +283,12 @@ void print_shared_memory(){
     printf("\tNumber of users: %d\n", shared_memory->numUsers);
     for(int i = 0; i < shared_memory->numUsers; i++){
         printf("\tUser %d: %d\n", shared_memory->data[i].user_id, shared_memory->data[i].plafond);
+    }
+
+    for(int i = 0; i < config->MOBILE_USERS; i++){
+        if(shared_memory->data[i].isActive == 1){
+            printf("\tUser %d: %d\n", shared_memory->data[i].user_id, shared_memory->data[i].plafond);
+        }
     }
 }
 

@@ -9,6 +9,7 @@
 //#define DEBUG // Comment this line to remove debug messages
 
 typedef struct{
+    int isActive;
     int user_id;
     int plafond;
 } MobileUserData;

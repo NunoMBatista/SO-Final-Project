@@ -14,10 +14,8 @@
 #define USER_PIPE "/tmp/USER_PIPE"
 #define BACK_PIPE "/tmp/BACK_PIPE"
 
-typedef struct{
-    long priority;
-    char messaage[PIPE_BUFFER_SIZE];
-} queue_message;
+#include <semaphore.h>
+#include "queue.h"
 
 typedef struct{
     int isActive;
@@ -45,8 +43,13 @@ extern sem_t* shared_memory_sem;
 extern int fd_user_pipe;
 extern int fd_back_pipe;
 
-extern int video_queue_id;
-extern int other_queue_id;
+extern Queue *video_queue;
+extern Queue *other_queue;
 extern int message_queue_id;
+
+extern pthread_mutex_t queues_mutex;
+extern pthread_cond_t sender_cond;
+
+extern int extra_auth_engine; // 0 if it's not active, 1 if it was activated by the video queue, 2 if it was activated by the other queue
 
 #endif

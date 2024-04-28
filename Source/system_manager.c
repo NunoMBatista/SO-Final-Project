@@ -22,6 +22,7 @@
 
 #include "global.h"
 #include "system_functions.h"
+#include "queue.h"
 
 /*
     Execution instructions:
@@ -37,9 +38,14 @@ sem_t* shared_memory_sem;
 int fd_user_pipe; 
 int fd_back_pipe;
 
-int video_queue_id;
-int other_queue_id;
+Queue *video_queue;
+Queue *other_queue;
 int message_queue_id;
+
+pthread_mutex_t queues_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t sender_cond = PTHREAD_COND_INITIALIZER;
+
+int extra_auth_engine = 0;
 
 int main(int argc, char *argv[]){
     // Check if another instance of the program is running by checking if the semaphore already exists

@@ -61,6 +61,7 @@
     "signal.h": "c",
     "fcntl.h": "c",
     "shm.h": "c",
-    "semaphore.h": "c"
+    "semaphore.h": "c",
+    "random": "c"
   }
 }

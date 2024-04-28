@@ -25,6 +25,7 @@
 
 #include "system_functions.h"
 #include "global.h"
+#include "queue.h"
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
@@ -124,21 +125,6 @@ int read_config_file(char *filename){
     return 0;
 }
 
-void parse_and_send(char *message){
-    // JUST SEND TO VIDEO FOR NOW, IMPLEMENT PARSING LATTER
-    queue_message msg; 
-    msg.priority = 1;
-    strcpy(msg.messaage, message);
-
-    #ifdef DEBUG
-    printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message);
-    #endif
-    if(msgsnd(video_queue_id, &msg, sizeof(msg), 0) == -1){
-        write_to_log("<ERROR SENDING MESSAGE TO VIDEO QUEUE>");
-        signal_handler(SIGINT);
-    }
-}
-
 void* receiver_thread(){
     // Implement receiver thread
     #ifdef DEBUG
@@ -197,25 +183,83 @@ void* receiver_thread(){
     return NULL;
 }
 
+void parse_and_send(char *message){
+    // JUST SEND TO VIDEO FOR NOW, IMPLEMENT PARSING LATTER
+    #ifdef DEBUG
+    printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message);
+    #endif
+
+    pthread_mutex_lock(&queues_mutex);
+
+    if(is_full(video_queue)){
+        if(extra_auth_engine == 0){
+            extra_auth_engine = 1; // Set to 1 because it was activated by the video queue
+            // ACTIVATE NEW AUTH ENGINE
+            // IMPLEMENT THIS LATER
+        }
+        else{
+            char error_message[PIPE_BUFFER_SIZE];
+            sprintf(error_message, "QUEUE IS FULL, DISCARDING MESSAGE: [%s]", message);
+            write_to_log(error_message);     
+        }
+    }
+    push(video_queue, message);
+
+    pthread_cond_signal(&sender_cond);
+
+    pthread_mutex_unlock(&queues_mutex);    
+}
+
 void* sender_thread(){
     // Implement sender thread
-
     #ifdef DEBUG
     printf("<SENDER>DEBUG# Sender thread started\n");
     #endif
     write_to_log("THREAD SENDER CREATED");
 
     // JUST READ VIDEOQUEUE FOR NOW, IMPLEMENT THE OTHER QUEUE LATER
-    queue_message msg;
     while(1){
-        if(msgrcv(video_queue_id, &msg, sizeof(msg), 0, 0) == -1){
-            write_to_log("<ERROR RECEIVING MESSAGE FROM VIDEO QUEUE>");
-            signal_handler(SIGINT);
+        // Check condition in mutual exclusion
+        pthread_mutex_lock(&queues_mutex);
+
+        while(is_empty(video_queue) && is_empty(other_queue)){
+            // Wait to be notified and let other threads access the mutex
+            pthread_cond_wait(&sender_cond, &queues_mutex);
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Sender thread notified\n");
+            #endif
+        }
+
+        // Once notified, the sender will read the queues untill they are empty
+        char *message;
+
+        if(!is_empty(video_queue)){
+            message = pop(video_queue);
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Got [%s] from the video queue\n", message);
+            #endif
+
+            // SEND TO AUTH ENGINE
+        }  
+        else if(!is_empty(other_queue)){
+            message = pop(other_queue);
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Got [%s] from the other queue\n", message);
+            #endif
+
+            // SEND TO AUTH ENGINE
         }
 
         #ifdef DEBUG
-        printf("<SENDER>DEBUG# Received message from video queue: %s\n", msg.messaage);
+        printf("<SENDER>DEBUG# Sending message to monitor engine: %s\n", message);
         #endif
+    
+        // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
+        
+        pthread_mutex_unlock(&queues_mutex);
+
+
+        // SEND TO MONITOR ENGINE [IMPLEMENT LATER]
     }
 
     return NULL;
@@ -293,7 +337,7 @@ int create_auth_manager(){
         write_to_log("PROCESS AUTHORIZATION_REQUEST_MANAGER CREATED");
 
         create_pipes();
-        create_message_queues();
+        create_fifo_queues();
 
         // Create receiver and sender threads
         #ifdef DEBUG
@@ -436,23 +480,17 @@ void print_shared_memory(){
     }
 }
 
-int create_message_queues(){
+int create_fifo_queues(){
     #ifdef DEBUG
     printf("<ARM>DEBUG# Creating video queue...\n");
     #endif
-    if((video_queue_id = msgget(IPC_PRIVATE, IPC_CREAT | 0777)) == -1){
-        write_to_log("<ERROR CREATING VIDEO QUEUE>");
-        return 1;
-    }
-
+    video_queue = create_queue(config->QUEUE_POS);
+    
     #ifdef DEBUG
     printf("<ARM>DEBUG# Creating other queue...\n");
     #endif
-    if((other_queue_id = msgget(IPC_PRIVATE, IPC_CREAT | 0777)) == -1){
-        write_to_log("<ERROR CREATING OTHER QUEUE>");
-        return 1;
-    }
-
+    other_queue = create_queue(config->QUEUE_POS);
+    
     return 0; 
 }
 

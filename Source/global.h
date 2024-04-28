@@ -8,11 +8,17 @@
 
 #define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
 #define DEBUG // Comment this line to remove debug messages
+#define PRETTY // Comment this line to remove pretty CLI 
+
 #define LOG_SEMAPHORE "log_semaphore"
 #define SHARED_MEMORY_SEMAPHORE "shared_memory_semaphore"
+#define AUXILIARY_SHM_SEMAPHORE "auxiliary_shm_semaphore"
+#define ENGINES_SEMAPHORE "engines_semaphore"
+
 #define PIPE_BUFFER_SIZE 100
 #define USER_PIPE "/tmp/USER_PIPE"
 #define BACK_PIPE "/tmp/BACK_PIPE"
+
 
 #include <semaphore.h>
 #include "queue.h"
@@ -25,6 +31,18 @@ typedef struct{
 } MobileUserData;
 
 typedef struct{
+    int num_users;
+    int spent_video;
+    int spent_music;
+    int spent_social;
+    MobileUserData *users;
+} SharedMemory;
+
+typedef struct{
+    int *active_auth_engines;
+} AuxiliaryShm;
+
+typedef struct{
     int MOBILE_USERS; // Max number of users
     int QUEUE_POS; // Number of queue slots
     int AUTH_SERVERS; // Max number of auth engines
@@ -34,11 +52,23 @@ typedef struct{
 } Config;
 
 // External declaration to be used in other files
-extern Config* config;
-extern MobileUserData* shared_memory;
-extern int shm_id;
+extern Config *config;
+
+//extern MobileUserData* shared_memory;
+extern SharedMemory *shared_memory;
+extern int shm_id; // General shared memory id
+extern int shm_id_users; // Shared memory id for users
+extern sem_t *shared_memory_sem;
+
+extern AuxiliaryShm *auxiliary_shm;
+extern int aux_shm_id;
+extern int engines_shm_id;
+extern sem_t *engines_sem; // Semaphore with value config->AUTH_SERVERS to control the number of active auth engines
+extern sem_t *aux_shm_sem; // Binary semaphore to control access to auxiliary shared memory
+
+extern int **auth_engine_pipes; // Array of pipes fd for the sender to communicate with the auth engines
+
 extern sem_t* log_semaphore;
-extern sem_t* shared_memory_sem;
 
 extern int fd_user_pipe;
 extern int fd_back_pipe;
@@ -50,6 +80,7 @@ extern int message_queue_id;
 extern pthread_mutex_t queues_mutex;
 extern pthread_cond_t sender_cond;
 
-extern int extra_auth_engine; // 0 if it's not active, 1 if it was activated by the video queue, 2 if it was activated by the other queue
+extern int extra_auth_engine; // 0 if it's not active, 1 otherwise
+extern pid_t extra_auth_pid; // PID of the extra auth engine
 
 #endif

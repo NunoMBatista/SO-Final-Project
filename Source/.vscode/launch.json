@@ -5,11 +5,11 @@
       "name": "C/C++ Runner: Debug Session",
       "type": "cppdbg",
       "request": "launch",
-      "args": [],
+      "program": "${workspaceRoot}/5g_auth_platform",
+      "args": ["configuration.conf"],
       "stopAtEntry": false,
       "externalConsole": false,
       "cwd": "/home/nuno/Desktop/LEI/2ºAno/2ºSemestre/SO/Projeto/SO-Final-Project/Source",
-      "program": "/home/nuno/Desktop/LEI/2ºAno/2ºSemestre/SO/Projeto/SO-Final-Project/Source/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

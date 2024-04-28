@@ -29,6 +29,7 @@
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
+// Writes a message to the log file
 void write_to_log(char *message){
     // Wait if there is any process using the log file
     sem_wait(log_semaphore); 
@@ -69,6 +70,7 @@ void write_to_log(char *message){
     return;
 }
 
+// Reads the configuration file and store the values in the global config struct
 int read_config_file(char *filename){
     // Return 0 if the config file was read successfully and has valid values
     // Return 1 otherwise
@@ -125,6 +127,7 @@ int read_config_file(char *filename){
     return 0;
 }
 
+// Listens to the named pipes and send the messages to the queues
 void* receiver_thread(){
     // Implement receiver thread
     #ifdef DEBUG
@@ -176,13 +179,22 @@ void* receiver_thread(){
         printf("%s\n", buffer);
 
         #ifdef DEBUG    
-        printf("<RECEIVER>DEBUG# Read %d bytes\n", read_bytes);
+        printf("<RECEIVER>DEBUG# Queue status:\n\tVideo: %d/%d\n\tOther: %d/%d\n\tExtra Engine: %d\n", video_queue->num_elements, video_queue->max_elements, other_queue->num_elements, other_queue->max_elements, extra_auth_engine); 
+        #endif
+
+        #ifdef PRETTY
+        printf("VIDEO QUEUE: ");
+        print_progress(video_queue->num_elements, video_queue->max_elements);
+        printf("OTHER QUEUE: ");
+        print_progress(other_queue->num_elements, other_queue->max_elements);
         #endif
     }
 
     return NULL;
 }
 
+// Sends the messages to the queues, called by the receiver thread
+// Also, deploys the extra auth engine if any of the queues is full
 void parse_and_send(char *message){
     // JUST SEND TO VIDEO FOR NOW, IMPLEMENT PARSING LATTER
     #ifdef DEBUG
@@ -192,24 +204,70 @@ void parse_and_send(char *message){
     pthread_mutex_lock(&queues_mutex);
 
     if(is_full(video_queue)){
-        if(extra_auth_engine == 0){
-            extra_auth_engine = 1; // Set to 1 because it was activated by the video queue
-            // ACTIVATE NEW AUTH ENGINE
-            // IMPLEMENT THIS LATER
-        }
-        else{
-            char error_message[PIPE_BUFFER_SIZE];
-            sprintf(error_message, "QUEUE IS FULL, DISCARDING MESSAGE: [%s]", message);
-            write_to_log(error_message);     
+        char error_message[PIPE_BUFFER_SIZE];
+        sprintf(error_message, "QUEUE IS FULL, DISCARDING MESSAGE: [%s]", message);
+        write_to_log(error_message);     
+    }
+    else{
+        push(video_queue, message);
+        // If it's full after pushing the message, add a new auth engine
+        if(is_full(video_queue) && extra_auth_engine == 0){
+            deploy_extra_engine();
         }
     }
-    push(video_queue, message);
 
+    #ifdef DEBUG
+    printf("<RECEIVER>DEBUG# Notifying sender thread\n");
+    #endif
+    
     pthread_cond_signal(&sender_cond);
-
     pthread_mutex_unlock(&queues_mutex);    
 }
 
+// Deploys the extra auth engine if both queues are full, called by the parse_and_send function
+void deploy_extra_engine(){
+    #ifdef DEBUG
+    printf("<RECEIVER>DEBUG# The queues are full and the extra auth engine is not active, deploying it...\n");
+    #endif
+
+    // Allocate memory for the new unammed pipe
+    auth_engine_pipes[config->AUTH_SERVERS] = (int*) malloc(sizeof(int) * 2);
+    if(pipe(auth_engine_pipes[config->AUTH_SERVERS]) == -1){
+        write_to_log("<ERROR CREATING AUTH ENGINE PIPE>");
+        return;
+    }
+
+    // Activate the extra engine flag
+    extra_auth_engine = 1;
+
+    extra_auth_pid = fork();
+    if(extra_auth_pid == 0){
+        // Child process (extra auth engine)
+        
+        // Signal handling
+        signal(SIGTERM, kill_auth_engine);
+        close(auth_engine_pipes[config->AUTH_SERVERS][1]); // Close write end of the pipe
+
+        // Start the extra auth engine process with the last ID available
+        auth_engine_process(config->AUTH_SERVERS);
+        write_to_log("EXTRA AUTHORIZATION ENGINE DEPLOYED");
+        exit(0);
+    }
+    else{
+        // Parent process (ARM)
+        close(auth_engine_pipes[config->AUTH_SERVERS][0]); // Close read end of the pipe
+
+        // Activate the extra auth engine flag 
+        extra_auth_engine = 1;
+    }
+
+    #ifdef DEBUG
+    printf("<RECEIVER>DEBUG# Extra auth engine deployed\n");
+    #endif
+}
+
+// Reads the messages from the queues, check for available auth engines and send the messages to them
+// Also, deactivates the extra auth engine if both queues are at 50% capacity
 void* sender_thread(){
     // Implement sender thread
     #ifdef DEBUG
@@ -221,9 +279,16 @@ void* sender_thread(){
     while(1){
         // Check condition in mutual exclusion
         pthread_mutex_lock(&queues_mutex);
+        #ifdef DEBUG
+        printf("<SENDER>DEBUG# Sender thread checking queues in mutual exclusion\n");
+        #endif
 
         while(is_empty(video_queue) && is_empty(other_queue)){
             // Wait to be notified and let other threads access the mutex
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Both queues are empty, waiting for notification\n");
+            #endif
+
             pthread_cond_wait(&sender_cond, &queues_mutex);
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Sender thread notified\n");
@@ -238,33 +303,75 @@ void* sender_thread(){
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Got [%s] from the video queue\n", message);
             #endif
-
-            // SEND TO AUTH ENGINE
         }  
         else if(!is_empty(other_queue)){
             message = pop(other_queue);
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Got [%s] from the other queue\n", message);
             #endif
-
-            // SEND TO AUTH ENGINE
         }
 
-        #ifdef DEBUG
-        printf("<SENDER>DEBUG# Sending message to monitor engine: %s\n", message);
-        #endif
-    
         // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
-        
         pthread_mutex_unlock(&queues_mutex);
 
+        #ifdef DEBUG
+        int sem_value;
+        sem_getvalue(engines_sem, &sem_value);
+        if(sem_value == 0){
+            printf("<SENDER>DEBUG# No auth engines available, waiting...\n");
+        }
+        else{
+            printf("<SENDER>DEBUG# Engines semaphore value: %d\n", sem_value);
+        }
+        #endif
+        // Wait until an auth engine is available
+        sem_wait(engines_sem);
+        
+        #ifdef DEBUG
+        printf("<SENDER>DEBUG# Searching for an available auth engine...\n");
+        #endif
+        // Check which auth engine is available
+        sem_wait(aux_shm_sem);
+        // If the extra auth engine is active, the for loop is increased by 1
+        for(int id = 0; id < config->AUTH_SERVERS + extra_auth_engine; id++){
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Checking if auth engine %d is available\n", id);
+            #endif
+            if(auxiliary_shm->active_auth_engines[id] == 0){
+                #ifdef DEBUG
+                printf("<SENDER>DEBUG# Auth engine %d is available, sending message\n", id);
+                #endif
+                // Send message to auth engine and mark it as busy
+                auxiliary_shm->active_auth_engines[id] = 1;
+                
+                write(auth_engine_pipes[id][1], message, PIPE_BUFFER_SIZE);
+                break;
+            }
 
-        // SEND TO MONITOR ENGINE [IMPLEMENT LATER]
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Auth engine %d is busy\n", id);
+            #endif
+        }
+        sem_post(aux_shm_sem);
+
+        #ifdef DEBUG    
+        printf("<SENDER>DEBUG# Queue status:\n\tVideo: %d/%d\n\tOther: %d/%d\n\tExtra Engine: %d\n", video_queue->num_elements, video_queue->max_elements, other_queue->num_elements, other_queue->max_elements, extra_auth_engine); 
+        #endif
+
+        // If both queues reach 50% capacity, the extra auth engine is deactivated
+        if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Both queues are at 50%% capacity, deactivating extra auth engine\n");
+            #endif
+           
+            kill(extra_auth_pid, SIGTERM);
+            extra_auth_engine = 0;
+        }
     }
-
     return NULL;
 }
 
+// Creates the monitor engine process
 int create_monitor_engine(){   
     // Create a new process
  
@@ -289,6 +396,7 @@ int create_monitor_engine(){
     return 0;
 }
 
+// Creates and opens USER_PIPE and BACK_PIPE, called by the ARM
 int create_pipes(){
     #ifdef DEBUG
     printf("<ARM>DEBUG# Creating named pipes...\n");
@@ -324,6 +432,7 @@ int create_pipes(){
     return 0;
 }
 
+// Creates the ARM process, which will create the auth engines and the receiver/sender threads
 int create_auth_manager(){
     pid_t pid = fork();
 
@@ -334,15 +443,23 @@ int create_auth_manager(){
 
     if(pid == 0){
         // Child process
+        #ifdef DEBUG
+        printf("<ARM>DEBUG# Authorization Requests Manager has PID %d\n", getpid());
+        #endif
+
         write_to_log("PROCESS AUTHORIZATION_REQUEST_MANAGER CREATED");
+        
+        create_auth_engines();
 
         create_pipes();
         create_fifo_queues();
+
 
         // Create receiver and sender threads
         #ifdef DEBUG
         printf("<ARM>DEBUG# Creating receiver and sender threads...\n");
         #endif
+
         pthread_t receiver, sender;
         pthread_create(&receiver, NULL, receiver_thread, NULL);
         pthread_create(&sender, NULL, sender_thread, NULL);
@@ -354,6 +471,7 @@ int create_auth_manager(){
         // Wait for threads to finish
         pthread_join(receiver, NULL);
         pthread_join(sender, NULL);
+
         exit(0);
     }
 
@@ -361,24 +479,80 @@ int create_auth_manager(){
     return 0;
 }   
 
+// Creates the shared memory and auxiliary shared memory
 int create_shared_memory(){  
     // Create new shared memory with size of SharedMemory struct and permissions 0777 (rwx-rwx-rwx)
-    shm_id = shmget(IPC_PRIVATE, sizeof(MobileUserData) * config->MOBILE_USERS, IPC_CREAT | 0777);
+    // shm_id = shmget(IPC_PRIVATE, sizeof(MobileUserData) * config->MOBILE_USERS, IPC_CREAT | 0777);
+    // if(shm_id == -1){
+    //     write_to_log("<ERROR CREATING SHARED MEMORY>");
+    //     return 1;
+    // }
+
+    // Attach shared memory to shared_memory pointer
+    //shared_memory = (MobileUserData*) shmat(shm_id, NULL, 0);
+    
+    // Initialize shared memory struct
+    shm_id = shmget(IPC_PRIVATE, sizeof(SharedMemory), IPC_CREAT | 0777);
     if(shm_id == -1){
         write_to_log("<ERROR CREATING SHARED MEMORY>");
         return 1;
     }
-
-    // Attach shared memory to shared_memory pointer
-    shared_memory = (MobileUserData*) shmat(shm_id, NULL, 0);
+    shared_memory = (SharedMemory*) shmat(shm_id, NULL, 0);
     if(shared_memory == (void*) -1){
         write_to_log("<ERROR ATTACHING SHARED MEMORY>");
         return 1;
     }
-
-    for(int i = 0; i < config->MOBILE_USERS; i++){
-        shared_memory[i].isActive = 0;
+    
+    // Allocate memory for the users
+    shm_id_users = shmget(IPC_PRIVATE, sizeof(MobileUserData) * config->MOBILE_USERS, IPC_CREAT | 0777);
+    if(shm_id_users == -1){
+        write_to_log("<ERROR CREATING SHARED MEMORY FOR USERS>");
+        return 1;
     }
+    shared_memory->users = (MobileUserData*) shmat(shm_id_users, NULL, 0);
+    if(shared_memory->users == (void*) -1){
+        write_to_log("<ERROR ATTACHING SHARED MEMORY FOR USERS>");
+        return 1;
+    }
+    // Initialize the shared memory values
+    shared_memory->num_users = 0;
+    shared_memory->spent_video = 0;
+    shared_memory->spent_social = 0;
+    shared_memory->spent_music = 0;
+    for(int i = 0; i < config->MOBILE_USERS; i++){
+        shared_memory->users[i].isActive = 0;
+    }
+
+
+    // Initialize auxiliary shared memory
+    aux_shm_id = shmget(IPC_PRIVATE, sizeof(AuxiliaryShm), IPC_CREAT | 0777);
+    if(aux_shm_id == -1){
+        write_to_log("<ERROR CREATING AUXILIARY SHARED MEMORY>");
+        return 1;
+    }
+    auxiliary_shm = (AuxiliaryShm*) shmat(aux_shm_id, NULL, 0);
+    if(auxiliary_shm == (void*) -1){
+        write_to_log("<ERROR ATTACHING AUXILIARY SHARED MEMORY>");
+        return 1;
+    }
+
+    // Allocate memory for engines
+    engines_shm_id = shmget(IPC_PRIVATE, sizeof(int) * (config->AUTH_SERVERS + 1), IPC_CREAT | 0777); // +1 for the extra engine
+    if(engines_shm_id == -1){
+        write_to_log("<ERROR CREATING AUXILIARY SHARED MEMORY FOR ENGINES>");
+        return 1;
+    }
+    auxiliary_shm->active_auth_engines = (int*) shmat(engines_shm_id, NULL, 0);
+    if(auxiliary_shm->active_auth_engines == (void*) -1){
+        write_to_log("<ERROR ATTACHING AUXILIARY SHARED MEMORY FOR ENGINES>");
+        return 1;
+    }
+    for(int i = 0; i < config->AUTH_SERVERS + 1; i++){
+        // Set all auth engines as unavailable
+        auxiliary_shm->active_auth_engines[i] = 1;
+    }
+    
+
 
     #ifdef DEBUG
     printf("DEBUG# Shared memory created successfully\n");
@@ -387,6 +561,7 @@ int create_shared_memory(){
     return 0;
 }
 
+// Creates the log semaphore and the shared memory semaphore
 int create_semaphores(){
     // Clean up sempahores if they already exist
     sem_close(log_semaphore);
@@ -421,9 +596,139 @@ int create_semaphores(){
     printf("DEBUG# Shared memory semaphore created successfully\n");
     #endif
 
+
     return 0;
 }
 
+// Creates the auxiliary shared memory semaphore and the engines semaphore
+int create_aux_semaphores(){
+    sem_close(aux_shm_sem);
+    sem_unlink(AUXILIARY_SHM_SEMAPHORE);
+    sem_close(engines_sem);
+    sem_unlink(ENGINES_SEMAPHORE);
+
+    #ifdef DEBUG
+    printf("DEBUG# Creating auxiliary shared memory semaphore...\n");
+    #endif
+
+    // Create auxiliary shared memory semaphore
+    aux_shm_sem = sem_open(AUXILIARY_SHM_SEMAPHORE, O_CREAT | O_EXCL, 0777, 1);
+    if(aux_shm_sem == SEM_FAILED){
+        write_to_log("<ERROR CREATING AUXILIARY SHM SEMAPHORE>");
+        return 1;
+    }
+
+    #ifdef DEBUG
+    printf("DEBUG# Auxiliary shared memory semaphore created successfully\n");
+    printf("DEBUG# Creating engines semaphore...\n");
+    #endif
+
+    // Create engines semaphore
+    engines_sem = sem_open(ENGINES_SEMAPHORE, O_CREAT | O_EXCL, 0777, 0); // Start as locked, will be unlocked when the auth engines are created
+    if(engines_sem == SEM_FAILED){
+        write_to_log("<ERROR CREATING ENGINES SEMAPHORE>");
+        return 1;
+    }
+
+    #ifdef DEBUG
+    printf("DEBUG# Engines semaphore created successfully\n");
+    #endif
+    return 0; 
+}
+
+// Creates the initial auth engines
+int create_auth_engines(){
+    auth_engine_pipes = (int**) malloc(sizeof(int*) * (config->AUTH_SERVERS + 1)); // +1 for the extra engine
+    if(auth_engine_pipes == NULL){
+        write_to_log("<ERROR CREATING AUTH ENGINE PIPES>");
+        return 1;
+    }
+
+    #ifdef DEBUG
+    printf("<ARM>DEBUG# Creating auth engines...\n");
+    #endif
+
+    for(int i = 0; i < config->AUTH_SERVERS; i++){
+        // Open pipe before forking
+        auth_engine_pipes[i] = (int*) malloc(sizeof(int) * 2);
+
+        if(pipe(auth_engine_pipes[i]) == -1){
+            write_to_log("<ERROR CREATING AUTH ENGINE PIPE>");
+            return 1;
+        }
+
+        pid_t engine_pid = fork();
+        if(engine_pid == -1){
+            write_to_log("<ERROR CREATING AUTH ENGINE>");
+            return 1;
+        }
+
+        if(engine_pid == 0){
+            // Auth engine
+            close(auth_engine_pipes[i][1]); // Close write end of the pipe
+
+            auth_engine_process(i);
+
+            write_to_log("PROCESS AUTHORIZATION_ENGINE CREATED");
+            exit(0);
+        }
+        else{
+            // Parent process (ARM)
+            close(auth_engine_pipes[i][0]); // Close read end of the pipe
+
+        }
+    }
+
+    return 0; 
+}
+
+// Authorization engine process
+int auth_engine_process(int id){
+    #ifdef DEBUG
+    printf("<AE>DEBUG# Auth engine %d started with PID %d\n", id, getpid());
+    #endif
+
+    // Mark as available
+    sem_wait(aux_shm_sem);
+    auxiliary_shm->active_auth_engines[id] = 0;
+    sem_post(aux_shm_sem);
+
+    // "Notify" the sender thread that an auth engine is available
+    sem_post(engines_sem);
+
+    while(1){
+        #ifdef DEBUG
+        printf("<AE%d>DEBUG# Auth engine is ready to receive a request\n", id);
+        #endif
+
+        char message[PIPE_BUFFER_SIZE];
+        // Wait for message
+        read(auth_engine_pipes[id][0], message, PIPE_BUFFER_SIZE);
+        
+        #ifdef DEBUG
+        printf("<AE%d>DEBUG# Auth engine is now processing a request: %s\n", id, message);
+        #endif
+
+        sleep_milliseconds(config->AUTH_PROC_TIME);
+
+        // Mark the auth engine as available
+        sem_wait(aux_shm_sem);
+        auxiliary_shm->active_auth_engines[id] = 0;
+        sem_post(aux_shm_sem);
+
+        // "Notify" the sender thread that an auth engine is available
+        sem_post(engines_sem);
+
+        #ifdef DEBUG
+        printf("<AE%d>DEBUG# Auth engine finished processing request: %s, it's available again\n", id, message);
+        #endif
+
+    }
+
+    return 0;
+}
+
+// Adds a mobile user to the shared memory, called by the auth engines
 int add_mobile_user(int user_id, int plafond){
     #ifdef DEBUG
     printf("DEBUG# Adding user %d to shared memory\n", user_id);
@@ -439,17 +744,17 @@ int add_mobile_user(int user_id, int plafond){
             return 1;
         }
 
-        if(shared_memory[i].isActive == 0){
+        if(shared_memory->users[i].isActive == 0){
             // Check if there's a user with the same id already in the shared memory
-            if(shared_memory[i].user_id == user_id){ 
+            if(shared_memory->users[i].user_id == user_id){ 
                 write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
                 return 1;
             }
 
-            shared_memory[i].isActive = 1; // Set user as active
-            shared_memory[i].user_id = user_id;
-            shared_memory[i].initial_plafond = plafond;
-            shared_memory[i].spent_plafond = 0;
+            shared_memory->users[i].isActive = 1; // Set user as active
+            shared_memory->users[i].user_id = user_id;
+            shared_memory->users[i].initial_plafond = plafond;
+            shared_memory->users[i].spent_plafond = 0;
             break;
         }
     }
@@ -474,12 +779,13 @@ void print_shared_memory(){
 
     printf("Shared memory:\n");
     for(int i = 0; i < config->MOBILE_USERS; i++){
-        if(shared_memory[i].isActive == 1){
-            printf("\tUser %d has plafond: %d\n", shared_memory[i].user_id, shared_memory[i].initial_plafond - shared_memory[i].spent_plafond);
+        if(shared_memory->users[i].isActive == 1){
+            printf("\tUser %d has plafond: %d\n", shared_memory->users[i].user_id, shared_memory->users[i].initial_plafond - shared_memory->users[i].spent_plafond);
         }
     }
 }
 
+// Creates the video and other queues
 int create_fifo_queues(){
     #ifdef DEBUG
     printf("<ARM>DEBUG# Creating video queue...\n");
@@ -494,6 +800,7 @@ int create_fifo_queues(){
     return 0; 
 }
 
+// Initializes the system, called by the main function
 int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Initializing system...\n");
@@ -526,6 +833,23 @@ int initialize_system(char* config_file){
         return 1;
     }
 
+
+    // The auxiliary semaphores must be created after reading the config file
+    // Because the engines semaphore depends on the number of auth servers
+    #ifdef DEBUG
+    printf("Creating auxiliary semaphores...\n");
+    #endif
+    if(create_aux_semaphores() != 0){
+        return 1;
+    }
+
+    #ifdef DEBUG
+    printf("<SYS MAN>DEBUG# Creating shared memory...\n");
+    #endif
+    if(create_shared_memory() != 0){
+        return 1;
+    }
+
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating monitor engine...\n");
     #endif
@@ -540,12 +864,6 @@ int initialize_system(char* config_file){
         return 1;
     }
 
-    #ifdef DEBUG
-    printf("<SYS MAN>DEBUG# Creating shared memory...\n");
-    #endif
-    if(create_shared_memory() != 0){
-        return 1;
-    }
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# System initialized successfully\n");
@@ -554,16 +872,96 @@ int initialize_system(char* config_file){
     return 0;
 }
 
+// Sleeps for the specified amount of milliseconds
+void sleep_milliseconds(int milliseconds){
+    struct timespec ts;
+    // Get time in seconds
+    ts.tv_sec = milliseconds / 1000;
+    // Get the remaining milliseconds and convert them to nanoseconds
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    // Sleep for the specified time
+    nanosleep(&ts, NULL);
+}
+
+void kill_auth_engine(int signal){
+    if(signal == SIGTERM){
+        write_to_log("<AE>SIGTERM RECEIVED, KILLING AUTH ENGINE");
+        if(getpid() == extra_auth_pid){
+            // Free extra pipe memory
+            free(auth_engine_pipes[config->AUTH_SERVERS]);
+        }
+        else{
+            for(int i = 0; i < config->AUTH_SERVERS; i++){
+                free(auth_engine_pipes[i]);
+            }
+            free(auth_engine_pipes);
+        }
+        exit(0);
+    }
+}
+
+void print_progress(int current, int max){
+    int barWidth = 70;
+
+    printf("[");
+    int pos = barWidth * current / max;
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) printf("=");
+        else if (i == pos) printf(">");
+        else printf(" ");
+    }
+    printf("] %d%%\n", (int)(current * 100.0 / max));
+}
+
+// Cleans up the system, called by the signal handler
 void clean_up(){
+    // ADICIONAR MÁSCARAS AO SIGINT
+    // CLEAN NAMED PIPES AND FREE auth_engine_pipes
+    // FREE THE QUEUES 
+    // DON'T FORGET TO LOOK FOR AND FREE EVERY MALLOC
+
     write_to_log("5G_AUTH_PLATFORM SIMULATOR CLOSING");
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Detatching and deleting the shared memory\n");
     #endif
+    if(shared_memory->users != NULL){
+        if(shmdt(shared_memory->users) == -1){
+            write_to_log("<ERROR DETATCHING USERS SHARED MEMORY>");
+        }
+        if(shmctl(shm_id_users, IPC_RMID, NULL) == -1){
+            write_to_log("<ERROR DELETING USERS SHARED MEMORY>");
+        }
+    }
     if(shared_memory != NULL){    
         // Detach and delete shared memory
-        shmdt(shared_memory);
-        shmctl(shm_id, IPC_RMID, NULL);
+        if(shmdt(shared_memory) == -1){
+            write_to_log("<ERROR DETATCHING SHARED MEMORY>");
+        }
+        if(shmctl(shm_id, IPC_RMID, NULL) == -1){
+            write_to_log("<ERROR DELETING SHARED MEMORY>");
+        }
+    }
+
+    #ifdef DEBUG
+    printf("<SYS MAN>DEBUG# Detatching and deleting the auxiliary shared memory\n");
+    #endif
+    if(auxiliary_shm->active_auth_engines != NULL){
+        if(shmdt(auxiliary_shm->active_auth_engines) == -1){
+            write_to_log("<ERROR DETATCHING ENGINES SHARED MEMORY>");
+        }
+        if(shmctl(engines_shm_id, IPC_RMID, NULL) == -1){
+            write_to_log("<ERROR DELETING ENGINES SHARED MEMORY>");
+        }
+    }
+    if(auxiliary_shm != NULL){
+        // Detach and delete auxiliary shared memory
+        if(shmdt(auxiliary_shm) == -1){
+            write_to_log("<ERROR DETATCHING AUXILIARY SHARED MEMORY>");
+        }
+        if(shmctl(aux_shm_id, IPC_RMID, NULL) == -1){
+            write_to_log("<ERROR DELETING AUXILIARY SHARED MEMORY>");
+        }
     }
 
     // Free config memory
@@ -590,6 +988,7 @@ void clean_up(){
     sem_unlink(SHARED_MEMORY_SEMAPHORE);
 }
 
+// Signal handler for SIGINT
 void signal_handler(int signal){
     if(signal == SIGINT){
         write_to_log("SIGNAL SIGINT RECEIVED");

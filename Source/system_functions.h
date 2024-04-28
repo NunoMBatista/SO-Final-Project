@@ -11,10 +11,16 @@ void* receiver_thread();
 void* sender_thread();
 int initialize_system(char *config_file);
 int create_monitor_engine();
+
 int create_pipes();
 int create_auth_manager();
+int auth_engine_process(int id);
+
 int create_shared_memory();
 int create_semaphores();
+int create_aux_semaphores();
+
+int create_auth_engines();
 int add_mobile_user(int user_id, int plafond);
 int create_fifo_queues();
 void parse_and_send(char *message);
@@ -23,4 +29,10 @@ void write_to_log(char *message);
 void clean_up();
 void signal_handler(int signal);
 
+void deploy_extra_engine();
+void print_progress(int current, int max);
+
+void kill_auth_engine(int signal);
+
+void sleep_milliseconds(int milliseconds);
 #endif

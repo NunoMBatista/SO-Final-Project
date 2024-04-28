@@ -112,33 +112,6 @@ int main(int argc, char *argv[]){
         exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
     }
 
-    // Create threads to send requests
-    // thread_args arg;
-    // arg.data_ammount = data_ammount;
-    // arg.max_requests = max_requests;
-
-    // #ifdef DEBUG
-    // printf("DEBUG# Creating video thread\n");
-    // #endif
-    // arg.delta = delta_video;
-    // strcpy(arg.type, "VIDEO");
-    // pthread_create(&video_thread, NULL, send_requests, (void*)&arg);
-
-    // #ifdef DEBUG
-    // printf("DEBUG# Creating music thread\n");
-    // #endif
-    // arg.delta = delta_music;
-    // strcpy(arg.type, "MUSIC");
-    // pthread_create(&music_thread, NULL, send_requests, (void*)&arg);
-
-    // #ifdef DEBUG
-    // printf("DEBUG# Creating social thread\n");
-    // #endif
-    // sleep(1);
-    // arg.delta = delta_social;
-    // strcpy(arg.type, "SOCIAL");
-    
-    // pthread_create(&social_thread, NULL, send_requests, (void*)&arg);
     char *types[3] = {"VIDEO", "MUSIC", "SOCIAL"};
     int deltas[3] = {delta_video, delta_music, delta_social};
     for(int i = 0; i < 3; i++){

@@ -31,6 +31,21 @@
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
+
+
+/*
+    To implement:
+
+    AE - Add user
+    AE - Get stats
+    AE - Reset stats
+
+    ME - Get periodic stats
+    ME - Condition variable
+
+    SYS MAN - Finish tasks before exiting
+*/
+
 // Writes a message to the log file
 void write_to_log(char *message){
     // Wait if there is any process using the log file
@@ -147,12 +162,12 @@ void* receiver_thread(){
         FD_ZERO(&read_set);
         FD_SET(fd_user_pipe, &read_set);
         FD_SET(fd_back_pipe, &read_set);
-
+        // Wait until something is written to the pipes
         if(select(max_fd + 1, &read_set, NULL, NULL, NULL) == -1){
             write_to_log("<ERROR SELECTING PIPES>");
             signal_handler(SIGINT);
         }
-
+        // Check USER_PIPE
         if(FD_ISSET(fd_user_pipe, &read_set)){
             if((read_bytes = read(fd_user_pipe, buffer, PIPE_BUFFER_SIZE)) == -1){
                 write_to_log("<ERROR READING FROM USER_PIPE>");
@@ -164,7 +179,7 @@ void* receiver_thread(){
             printf("<RECEIVER>DEBUG# Received message from USER_PIPE: %s\n", buffer);
             #endif
         }
-
+        // Check BACK_PIPE
         if(FD_ISSET(fd_back_pipe, &read_set)){
             if((read_bytes = read(fd_back_pipe, buffer, PIPE_BUFFER_SIZE)) == -1){
                 write_to_log("<ERROR READING FROM BACK_PIPE>");
@@ -866,36 +881,26 @@ int auth_engine_process(int id){
     return 0;
 }
 
-int remove_data(int user_id, int amount){
-    // Return 0 if the data was removed successfully
-    // Return 1 if the user is out of data or doesn't exist anymore
-
-    // At the end, trigger monitor engine condition variable
-    
-}
-
 // Adds a mobile user to the shared memory, called by the auth engines
 int add_mobile_user(int user_id, int plafond){
     #ifdef DEBUG
     printf("DEBUG# Adding user %d to shared memory\n", user_id);
     #endif
-    
     sem_wait(shared_memory_sem); // Lock shared memory semaphore
 
-    for(int i = 0; i <= config->MOBILE_USERS; i++){
-        // If the loop reaches the end of the shared memory, it means it's full
-        if(i == config->MOBILE_USERS){
-            write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
-            return 1;
-        }
+    // Check if the shared memory is full
+    if(shared_memory->num_users == config->MOBILE_USERS){
+        return 1;
+    }
 
+    for(int i = 0; i <= config->MOBILE_USERS; i++){
         if(shared_memory->users[i].isActive == 0){
             // Check if there's a user with the same id already in the shared memory
             if(shared_memory->users[i].user_id == user_id){ 
                 write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
                 return 1;
             }
-
+            
             shared_memory->users[i].isActive = 1; // Set user as active
             shared_memory->users[i].user_id = user_id;
             shared_memory->users[i].initial_plafond = plafond;
@@ -913,7 +918,6 @@ int add_mobile_user(int user_id, int plafond){
     char message[100];
     sprintf(message, "USER %d ADDED TO SHARED MEMORY", user_id);
     write_to_log(message);
-
     return 0;
 }
 

@@ -15,13 +15,19 @@
 #define AUXILIARY_SHM_SEMAPHORE "auxiliary_shm_semaphore"
 #define ENGINES_SEMAPHORE "engines_semaphore"
 
+#define MESSAGE_QUEUE_KEY "/tmp/message_queue_key"
+
 #define PIPE_BUFFER_SIZE 100
 #define USER_PIPE "/tmp/USER_PIPE"
 #define BACK_PIPE "/tmp/BACK_PIPE"
 
-
 #include <semaphore.h>
 #include "queue.h"
+
+typedef struct{
+    long type;
+    char text[PIPE_BUFFER_SIZE];
+} QueueMessage;
 
 typedef struct{
     int isActive;
@@ -38,6 +44,7 @@ typedef struct{
     MobileUserData *users;
 } SharedMemory;
 
+// MIGHT REMOVE NESTED SHARED MEMORY AND JUST HAVE AN ARRAY OF ACTIVE AUTH ENGINES AS AUX SHM
 typedef struct{
     int *active_auth_engines;
 } AuxiliaryShm;
@@ -50,6 +57,8 @@ typedef struct{
     int MAX_VIDEO_WAIT; // Max time that a video request can wait before being processed
     int MAX_OTHERS_WAIT; // Max time that a non-video request can wait before being processed
 } Config;
+
+
 
 // External declaration to be used in other files
 extern Config *config;
@@ -77,7 +86,7 @@ extern Queue *video_queue;
 extern Queue *other_queue;
 extern int message_queue_id;
 
-extern pthread_mutex_t queues_mutex;
+extern pthread_mutex_t queues_mutex; 
 extern pthread_cond_t sender_cond;
 
 extern int extra_auth_engine; // 0 if it's not active, 1 otherwise

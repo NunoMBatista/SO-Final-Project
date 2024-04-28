@@ -16,13 +16,9 @@ int is_empty(Queue* queue) {
     return queue->num_elements == 0;
 }
 
-int is_full(Queue *queue){
-    return queue->num_elements == queue->max_elements;
-}
-
-void push(Queue* queue, char *data) {
+void push(Queue* queue, Request data) {  // Change this line
     Node* newNode = (Node*)malloc(sizeof(Node));
-    strncpy(newNode->data, data, PIPE_BUFFER_SIZE);
+    newNode->data = data;  // Change this line
     newNode->next = NULL;
 
     if (queue->rear == NULL) {
@@ -35,15 +31,13 @@ void push(Queue* queue, char *data) {
     queue->num_elements++;
 }
 
-char* pop(Queue* queue) {
+Request pop(Queue* queue) {  // Change this line
     if (is_empty(queue)) {
-        return NULL;
+        return failed_request();
     }
 
     Node* temp = queue->front;
-    char* data = (char*) malloc(PIPE_BUFFER_SIZE * sizeof(char));
-
-    strcpy(data, temp->data);
+    Request data = temp->data;  // Change this line
 
     queue->front = queue->front->next;
     if (queue->front == NULL) {
@@ -56,9 +50,26 @@ char* pop(Queue* queue) {
     return data;
 }
 
-char* front(Queue* queue) {
+int is_full(Queue* queue) {
+    return queue->num_elements == queue->max_elements;
+}
+
+Request failed_request() {
+    Request failed;
+    failed.request_type = -1;
+    return failed;
+}
+
+Request front(Queue* queue) {
     if (is_empty(queue)) {
-        return NULL;
+        return failed_request();
     }
     return queue->front->data;
+}
+
+Request rear(Queue* queue) {
+    if (is_empty(queue)) {
+        return failed_request();
+    }
+    return queue->rear->data;
 }

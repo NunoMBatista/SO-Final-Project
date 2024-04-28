@@ -22,6 +22,8 @@
 #include <sys/time.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
+#include <ctype.h>
+#include <sys/msg.h>
 
 #include "system_functions.h"
 #include "global.h"
@@ -201,26 +203,118 @@ void parse_and_send(char *message){
     printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message);
     #endif
 
-    pthread_mutex_lock(&queues_mutex);
+    // Parse the message and send it to the correct queue
+    /*
+        VIDEO QUEUE: 
+            PID#VIDEO#INT - Video request
+   
+        OTHER QUEUE: 
+            PID#INT - Initial request
+            PID#[SOCIAL|MUSIC]#INT - Social or music request
+            1#[data_stats|reset] - Backoffice request
 
-    if(is_full(video_queue)){
-        char error_message[PIPE_BUFFER_SIZE];
-        sprintf(error_message, "QUEUE IS FULL, DISCARDING MESSAGE: [%s]", message);
-        write_to_log(error_message);     
+        Therefore, we only need to check the first character of the second argument
+    */
+
+    // Copying thee message is necessary as tokenizing it modifies the initial string
+    char message_copy[PIPE_BUFFER_SIZE];
+    strcpy(message_copy, message);
+
+    // Parsing process
+    Request request;
+    request.data_amount = 0; 
+    request.initial_plafond = 0;
+    request.start_time = -1; // IMPLEMENT LATER
+    char *token = strtok(message, "#");
+    if(token == NULL){
+        write_to_log("<ERROR PARSING MESSAGE>");
+        return;
     }
-    else{
-        push(video_queue, message);
-        // If it's full after pushing the message, add a new auth engine
-        if(is_full(video_queue) && extra_auth_engine == 0){
-            deploy_extra_engine();
+
+    // If it's a backoffice request
+    if(atoi(token) == 1){
+        request.user_id = 1; 
+        token = strtok(NULL, "#");
+        if(token == NULL){
+            write_to_log("<ERROR PARSING MESSAGE>");
+            return;
+        }
+        if(strcmp(token, "data_stats") == 0){
+            // Get stats
+            request.request_type = 'D';
+        }
+        else if(strcmp(token, "reset") == 0){
+            // Reset stats
+            request.request_type = 'R';
+        }
+        else{
+            // Invalid request
+            request.request_type = 'E';
         }
     }
+    else{
+        request.user_id = atoi(token);
+        token = strtok(NULL, "#");
+        if(token == NULL){
+            write_to_log("<ERROR PARSING MESSAGE>");
+            return;
+        }
+        // If it's a data request, there's another argument
+        if(token[0] == 'V' || token[0] == 'M' || token[0] == 'S'){
+            request.request_type = token[0];
+            token = strtok(NULL, "#");
+            if(token == NULL){
+                write_to_log("<ERROR PARSING MESSAGE>");
+                return;
+            }
+            request.data_amount = atoi(token);
+        }
+        // If it's an initial request, there are only 2 arguments
+        else{
+            request.request_type = 'I';
+            request.initial_plafond = atoi(token);
+        }
+    }
+
+
+    char error_message[PIPE_BUFFER_SIZE + 50];
+    pthread_mutex_lock(&queues_mutex);
+
+    // If it's a video request
+    if(request.request_type == 'V'){
+        // Send to video queue
+        if(is_full(video_queue)){
+            sprintf(error_message, "VIDEO QUEUE IS FULL, DISCARDING MESSAGE [%s]", message_copy);
+            write_to_log(error_message);
+        }
+        else{
+            push(video_queue, request);
+        }
+    }
+    else{
+        // Send to other queue
+        if(is_full(other_queue)){
+            sprintf(error_message, "OTHER QUEUE IS FULL, DISCARDING MESSAGE [%s]", message_copy);
+            write_to_log(error_message);
+        }
+        else{
+            push(other_queue, request);
+        }
+    }
+
+    // Deploy extra auth engine if any of the queues is full and the extra auth engine is not active
+    if((is_full(other_queue) || is_full(video_queue)) && (!extra_auth_engine)){
+        deploy_extra_engine();
+    }
+
+    // Notify sender thread
+    pthread_cond_signal(&sender_cond);
+    pthread_mutex_unlock(&queues_mutex);
 
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Notifying sender thread\n");
     #endif
     
-    pthread_cond_signal(&sender_cond);
     pthread_mutex_unlock(&queues_mutex);    
 }
 
@@ -296,18 +390,19 @@ void* sender_thread(){
         }
 
         // Once notified, the sender will read the queues untill they are empty
-        char *message;
+        //char *message;
+        Request message; 
 
         if(!is_empty(video_queue)){
             message = pop(video_queue);
             #ifdef DEBUG
-            printf("<SENDER>DEBUG# Got [%s] from the video queue\n", message);
+            printf("<SENDER>DEBUG# Got [%d#%c#%d] from the video queue\n", message.user_id, message.request_type, message.data_amount);
             #endif
         }  
         else if(!is_empty(other_queue)){
             message = pop(other_queue);
             #ifdef DEBUG
-            printf("<SENDER>DEBUG# Got [%s] from the other queue\n", message);
+            printf("<SENDER>DEBUG# Got [%d#%c#%d#%d] from the other queue\n", message.user_id, message.request_type, message.data_amount, message.initial_plafond);
             #endif
         }
 
@@ -344,7 +439,7 @@ void* sender_thread(){
                 // Send message to auth engine and mark it as busy
                 auxiliary_shm->active_auth_engines[id] = 1;
                 
-                write(auth_engine_pipes[id][1], message, PIPE_BUFFER_SIZE);
+                write(auth_engine_pipes[id][1], &message, sizeof(Request));
                 break;
             }
 
@@ -685,7 +780,7 @@ int create_auth_engines(){
 // Authorization engine process
 int auth_engine_process(int id){
     #ifdef DEBUG
-    printf("<AE>DEBUG# Auth engine %d started with PID %d\n", id, getpid());
+    printf("<AE%d>DEBUG# Auth engine started with PID %d\n", id, getpid());
     #endif
 
     // Mark as available
@@ -701,15 +796,58 @@ int auth_engine_process(int id){
         printf("<AE%d>DEBUG# Auth engine is ready to receive a request\n", id);
         #endif
 
-        char message[PIPE_BUFFER_SIZE];
+        //char message[PIPE_BUFFER_SIZE];
+        Request request;
         // Wait for message
-        read(auth_engine_pipes[id][0], message, PIPE_BUFFER_SIZE);
+        read(auth_engine_pipes[id][0], &request, sizeof(Request));
         
         #ifdef DEBUG
-        printf("<AE%d>DEBUG# Auth engine is now processing a request: %s\n", id, message);
+        printf("<AE%d>DEBUG# Auth engine is now processing a request:\nUSER: %d\nTYPE: %c\nDATA: %d\nINITPLAF: %d\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
-
+    
+        #ifdef SLOWMOTION
+        sleep_milliseconds(config->AUTH_PROC_TIME * SLOWMOTION / 10);
+        #endif
         sleep_milliseconds(config->AUTH_PROC_TIME);
+
+        char log_message[PIPE_BUFFER_SIZE];
+
+        switch(request.request_type){
+            case 'I':
+                // Try to register user
+                
+
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
+                break;
+            case 'V':
+                // Try to authorize video request
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: VIDEO AUTHORIZATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
+                break;
+            case 'M':
+                // Try to authorize music request
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: MUSIC AUTHORIZATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
+                break;
+            case 'S':
+                printf("SOCIAL REQUEST\n");
+                // Try to authorize social request
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: SOCIAL AUTHORIZATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
+                break;
+            case 'D':
+                // Try to send data to backoffice user
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
+                break;
+            case 'R':
+                // Try to reset user data
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA RESET REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
+                break;
+            case 'E':
+                // Tell backoffice that the request is invalid
+                sprintf(log_message, "AUTHORIZATION_ENGINE %d: INVALID REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
+                break;
+            default:
+            
+        }
+        write_to_log(log_message);
 
         // Mark the auth engine as available
         sem_wait(aux_shm_sem);
@@ -720,12 +858,20 @@ int auth_engine_process(int id){
         sem_post(engines_sem);
 
         #ifdef DEBUG
-        printf("<AE%d>DEBUG# Auth engine finished processing request: %s, it's available again\n", id, message);
+        printf("<AE%d>DEBUG# Auth engine finished processing request: request:\nUSER: %d\nTYPE: %c\nDATA: %d\nINITPLAF: %d\nIt's available again\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
 
     }
 
     return 0;
+}
+
+int remove_data(int user_id, int amount){
+    // Return 0 if the data was removed successfully
+    // Return 1 if the user is out of data or doesn't exist anymore
+
+    // At the end, trigger monitor engine condition variable
+    
 }
 
 // Adds a mobile user to the shared memory, called by the auth engines
@@ -737,7 +883,6 @@ int add_mobile_user(int user_id, int plafond){
     sem_wait(shared_memory_sem); // Lock shared memory semaphore
 
     for(int i = 0; i <= config->MOBILE_USERS; i++){
-
         // If the loop reaches the end of the shared memory, it means it's full
         if(i == config->MOBILE_USERS){
             write_to_log("<ERROR ADDING USER TO SHARED MEMORY> Shared memory full");
@@ -783,6 +928,39 @@ void print_shared_memory(){
             printf("\tUser %d has plafond: %d\n", shared_memory->users[i].user_id, shared_memory->users[i].initial_plafond - shared_memory->users[i].spent_plafond);
         }
     }
+}
+
+// Creates the message queue
+int create_message_queue(){
+    // Generate a key based on the file name
+    
+    // Create temporary file
+    FILE* temp = fopen(MESSAGE_QUEUE_KEY, "w");
+    if(temp == NULL){
+        write_to_log("<ERROR CREATING MESSAGE QUEUE KEY>");
+        return 1;
+    }
+    fclose(temp);
+
+    // Generate a key
+    key_t queue_key = ftok(MESSAGE_QUEUE_KEY, 'a');
+    if((message_queue_id = msgget(queue_key, IPC_CREAT | 0777)) == -1){
+        perror("msgget");
+        write_to_log("<ERROR CREATING MESSAGE QUEUE>");
+        return 1;
+    }
+
+
+    //Send test message
+    QueueMessage message;
+    message.type = 1; 
+    strcpy(message.text, "Test message");
+    if(msgsnd(message_queue_id, &message, sizeof(message.text), 0) == -1){
+        write_to_log("<ERROR SENDING TEST MESSAGE>");
+        return 1;
+    }
+
+    return 0;
 }
 
 // Creates the video and other queues
@@ -833,6 +1011,12 @@ int initialize_system(char* config_file){
         return 1;
     }
 
+    #ifdef DEBUG
+    printf("<SYS MAN>DEBUG# Creating message queue...\n");
+    #endif
+    if(create_message_queue() != 0){
+        return 1;
+    }
 
     // The auxiliary semaphores must be created after reading the config file
     // Because the engines semaphore depends on the number of auth servers
@@ -883,6 +1067,7 @@ void sleep_milliseconds(int milliseconds){
     nanosleep(&ts, NULL);
 }
 
+// Kill the auth engines
 void kill_auth_engine(int signal){
     if(signal == SIGTERM){
         write_to_log("<AE>SIGTERM RECEIVED, KILLING AUTH ENGINE");
@@ -896,6 +1081,8 @@ void kill_auth_engine(int signal){
             }
             free(auth_engine_pipes);
         }
+
+        // MIGHT CHANGE THIS IN ORDER TO JUST CHANGE A FLAG AND LET THE LAST LOOP ITERATION HAPPEN
         exit(0);
     }
 }
@@ -916,6 +1103,7 @@ void print_progress(int current, int max){
 // Cleans up the system, called by the signal handler
 void clean_up(){
     // ADICIONAR MÁSCARAS AO SIGINT
+    // REMOVER MESSAGE_QUEUE_KEY FILE
     // CLEAN NAMED PIPES AND FREE auth_engine_pipes
     // FREE THE QUEUES 
     // DON'T FORGET TO LOOK FOR AND FREE EVERY MALLOC

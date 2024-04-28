@@ -22,6 +22,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <ctype.h>
+#include <sys/msg.h>
 
 #include "global.h"
 
@@ -51,8 +52,11 @@ int requests_left;
 int threads_should_exit = 0; // Flag to signal the threads to exit
 
 int fd_user_pipe;
+int user_msq_id;
 
 int main(int argc, char *argv[]){
+
+
     #ifdef DEBUG
     printf("DEBUG# Mobile user starting - USER ID: %d\n", getpid());
     printf("DEBUG# Redirecting SIGINT to signal handler\n");
@@ -94,6 +98,15 @@ int main(int argc, char *argv[]){
     sprintf(message, "MOBILE USER STARTING - USER ID: %d\n PLAFOND: %d\n MAX REQUESTS: %d\n DELTA VIDEO: %d\n DELTA MUSIC: %d\n DELTA SOCIAL: %d\n DATA AMMOUNT: %d\n", getpid(), initial_plafond, requests_left, delta_video, delta_music, delta_social, data_ammount);
     
     #ifdef DEBUG
+    printf("DEBUG# Creating user message queue\n");
+    #endif
+    key_t queue_key = ftok(MESSAGE_QUEUE_KEY, 'a'); 
+    if((user_msq_id = msgget(queue_key, 0666 | IPC_CREAT)) == -1){
+        perror("<ERROR> Could not create message queue\n");
+        return 1;
+    }
+    
+    #ifdef DEBUG
     printf("DEBUG# Opening user pipe\n");
     #endif
     fd_user_pipe = open(USER_PIPE, O_WRONLY);
@@ -111,6 +124,16 @@ int main(int argc, char *argv[]){
         close(fd_user_pipe); // Close the pipe
         exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
     }
+
+    #ifdef DEBUG
+    printf("DEBUG# Waiting for the initial request to be accepted\n");
+    #endif
+    // QueueMessage qmsg;
+    // if(msgrcv(user_msq_id, &message, sizeof(message), getpid(), 0) == -1){
+    //     perror("<ERROR> Could not receive message from message queue\n");
+    //     close(fd_user_pipe); // Close the pipe
+    //     exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
+    // }
 
     char *types[3] = {"VIDEO", "MUSIC", "SOCIAL"};
     int deltas[3] = {delta_video, delta_music, delta_social};

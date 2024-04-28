@@ -29,6 +29,8 @@ void write_to_log(char *message);
 void clean_up();
 void signal_handler(int signal);
 
+int create_message_queue();
+
 void deploy_extra_engine();
 void print_progress(int current, int max);
 

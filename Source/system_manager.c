@@ -14,6 +14,12 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/select.h>
+#include <sys/time.h>
+
 #include "global.h"
 #include "system_functions.h"
 
@@ -24,16 +30,23 @@
 
 Config* config;
 int shm_id;
-//SharedMemory* shared_memory;
 MobileUserData* shared_memory;
 sem_t* log_semaphore;
 sem_t* shared_memory_sem;
 
-int main(int argc, char *argv[]){
-    signal(SIGINT, signal_handler);
+int fd_user_pipe; 
+int fd_back_pipe;
 
-    // Allocate memory for the config struct
-    config = (Config*) malloc(sizeof(Config));
+int video_queue_id;
+int other_queue_id;
+int message_queue_id;
+
+int main(int argc, char *argv[]){
+    // Check if another instance of the program is running by checking if the semaphore already exists
+    if((sem_open(LOG_SEMAPHORE, O_CREAT | O_EXCL, 0666, 1) == SEM_FAILED) && (errno == EEXIST)){
+        printf("!!! ANOTHER INSTANCE OF THE PROGRAM IS ALREADY RUNNING !!!\n");
+        return 1;
+    }
 
     // Check correct number of arguments
     if(argc != 2){
@@ -42,7 +55,11 @@ int main(int argc, char *argv[]){
     }
 
     char *config_file = argv[1];
+
     initialize_system(config_file);
+
+    // Wait for all child processes to finish
+    while(wait(NULL) > 0);
 
     add_mobile_user(1, 100);
     add_mobile_user(2, 200);

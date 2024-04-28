@@ -9,12 +9,15 @@
 int read_config_file(char *filename);
 void* receiver_thread();
 void* sender_thread();
-int initialize_system();
+int initialize_system(char *config_file);
 int create_monitor_engine();
+int create_pipes();
 int create_auth_manager();
 int create_shared_memory();
 int create_semaphores();
 int add_mobile_user(int user_id, int plafond);
+int create_message_queues();
+void parse_and_send(char *message);
 void print_shared_memory();
 void write_to_log(char *message);
 void clean_up();

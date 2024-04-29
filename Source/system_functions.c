@@ -34,7 +34,6 @@
 /*
     To implement:
 
-    AE - Add user
     AE - Get stats
     AE - Reset stats
 

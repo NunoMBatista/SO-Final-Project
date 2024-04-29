@@ -22,6 +22,8 @@
 #define USER_PIPE "/tmp/USER_PIPE"
 #define BACK_PIPE "/tmp/BACK_PIPE"
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
 #include <semaphore.h>
 #include <pthread.h>   
 #include "queue.h"

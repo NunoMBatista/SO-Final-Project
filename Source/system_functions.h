@@ -42,4 +42,5 @@ void print_progress(int current, int max);
 void kill_auth_engine(int signal);
 
 void sleep_milliseconds(int milliseconds);
+
 #endif

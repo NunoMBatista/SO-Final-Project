@@ -80,7 +80,10 @@ int auth_engine_process(int id){
         // If the user is not asking to be added and does not exist
         if((request.request_type != 'I') && (user_index == -1)){
             // THE USER DOES NOT EXIST
+            
+            
             response_applicable = 1; 
+            
             type = -1; // Skip if-else block
 
             sprintf(response, "DIE");
@@ -127,13 +130,16 @@ int auth_engine_process(int id){
             }
             // Theres no data left after removing
             if(return_code == 2){
-                deactivate_user(request.user_id);
+                
+                // Kill user
+                //deactivate_user(request.user_id);
+
                 sprintf(log_process_feedback, "USER %d HAS REACHED 0 PLAFOND AFTER REMOVING %d", request.user_id, request.data_amount);
 
     
                 // SEND MESSAGE TELLING THE USER TO SHUTDOWN
-                response_applicable = 1;
-                sprintf(response, "DIE");
+                //response_applicable = 1;
+                //sprintf(response, "DIE");
             }
             // The user didn't have enough data
             if(return_code == -1){
@@ -141,12 +147,14 @@ int auth_engine_process(int id){
                 // Don't add anything to the total stats
                 add_stats = 0; 
 
-                deactivate_user(request.user_id);
+                // Kill user
+                //deactivate_user(request.user_id);
+
                 sprintf(log_process_feedback, "USER %d DOES NOT HAVE ENOUGH PLAFOND TO GET %d, REMOVING USER", request.user_id, request.data_amount);
 
                 // SEND MESSAGE TELLING THE USER TO SHUTDOWN
-                response_applicable = 1; 
-                sprintf(response, "DIE");               
+                //response_applicable = 1; 
+                //sprintf(response, "DIE");               
 
             }
             // Set type in the log message
@@ -310,7 +318,8 @@ int remove_from_user(int user_id, int amount){
             if(remaining == 0){
                 return 2;
             }
-            if(remaining < 0){                
+            if(remaining < 0){             
+                shared_memory->users[i].spent_plafond = 0; // Do not exceede the limit   
                 return -1;
             }
             if(remaining > 0){

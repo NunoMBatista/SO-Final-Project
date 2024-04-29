@@ -36,6 +36,9 @@ int get_user_index(int user_id);
 int remove_from_user(int user_id, int amount);
 int deactivate_user(int user_id);
 
+// Monitor Engine functions (monitor_engine.c)
+void monitor_engine_process();
+
 // Cleanup (clean_up.c)
 void clean_up();
 void signal_handler(int signal);

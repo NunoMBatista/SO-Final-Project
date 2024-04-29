@@ -47,6 +47,9 @@ int create_monitor_engine(){
     if(pid == 0){
         // Child process
         write_to_log("PROCESS MONITOR_ENGINE CREATED");
+
+        monitor_engine_process();
+        
         exit(0);
     }
 
@@ -91,17 +94,7 @@ int create_aux_semaphores(){
 }
 
 // Creates the shared memory and auxiliary shared memory
-int create_shared_memory(){  
-    // Create new shared memory with size of SharedMemory struct and permissions 0777 (rwx-rwx-rwx)
-    // shm_id = shmget(IPC_PRIVATE, sizeof(MobileUserData) * config->MOBILE_USERS, IPC_CREAT | 0777);
-    // if(shm_id == -1){
-    //     write_to_log("<ERROR CREATING SHARED MEMORY>");
-    //     return 1;
-    // }
-
-    // Attach shared memory to shared_memory pointer
-    //shared_memory = (MobileUserData*) shmat(shm_id, NULL, 0);
-    
+int create_shared_memory(){   
     // Initialize shared memory struct
     shm_id = shmget(IPC_PRIVATE, sizeof(SharedMemory), IPC_CREAT | 0777);
     if(shm_id == -1){

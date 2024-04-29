@@ -275,7 +275,7 @@ void *send_requests(void *arg){
         sprintf(message, "%d#%s#%d", getpid(), type, data_ammount);
 
         write(fd_user_pipe, message, strlen(message) + 1);
-        
+        printf("\t(>>) Sending %s!\n", message);
         // Sleep for delta milliseconds
         sleep_milliseconds(delta);
     

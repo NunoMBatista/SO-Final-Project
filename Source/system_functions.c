@@ -31,8 +31,6 @@
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-
-
 /*
     To implement:
 
@@ -43,6 +41,7 @@
     ME - Get periodic stats
     ME - Condition variable
 
+    SYS MAN - Remove nested aux shared memory
     SYS MAN - Finish tasks before exiting
 
     <ARM> - Verificar se posso ter video_queue_mutex e other_queue_mutex
@@ -215,9 +214,6 @@ void* receiver_thread(){
 // Also, deploys the extra auth engine if any of the queues is full
 void parse_and_send(char *message){
     // JUST SEND TO VIDEO FOR NOW, IMPLEMENT PARSING LATTER
-    #ifdef DEBUG
-    printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message);
-    #endif
 
     // Parse the message and send it to the correct queue
     /*
@@ -304,6 +300,9 @@ void parse_and_send(char *message){
             write_to_log(error_message);
         }
         else{
+            #ifdef DEBUG
+            printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message);
+            #endif
             push(video_queue, request);
         }
     }
@@ -314,6 +313,9 @@ void parse_and_send(char *message){
             write_to_log(error_message);
         }
         else{
+            #ifdef DEBUG
+            printf("<RECEIVER>DEBUG# Sending message to other queue: %s\n", message);
+            #endif
             push(other_queue, request);
         }
     }
@@ -663,7 +665,23 @@ int create_shared_memory(){
         auxiliary_shm->active_auth_engines[i] = 1;
     }
     
+    // Initialize shared mutex and condition variables
+    pthread_mutexattr_t shared_mutex;
+    pthread_mutexattr_init(&shared_mutex); // Initialize mutex attributes
+    pthread_mutexattr_setpshared(&shared_mutex, PTHREAD_PROCESS_SHARED); // Share mutex between processes
+    if(pthread_mutex_init(&auxiliary_shm->monitor_engine_mutex, &shared_mutex) != 0){
+        write_to_log("<ERROR INITIALIZING MONITOR ENGINE MUTEX>");
+        return 1;
+    }
 
+    pthread_condattr_t shared_cond;
+    pthread_condattr_init(&shared_cond); // Initialize condition variable attributes
+    pthread_condattr_setpshared(&shared_cond, PTHREAD_PROCESS_SHARED); // Share condition variable between processes
+    if(pthread_cond_init(&auxiliary_shm->monitor_engine_cond, &shared_cond) != 0){
+        write_to_log("<ERROR INITIALIZING MONITOR ENGINE CONDITION VARIABLE>");
+        return 1;
+    }
+    
 
     #ifdef DEBUG
     printf("DEBUG# Shared memory created successfully\n");
@@ -864,7 +882,7 @@ int auth_engine_process(int id){
             if(return_code  == 0){
                 sprintf(response, "ACCEPTED");
                 //sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED -> USER ADDED WITH INITIAL PLAFFOND OF %d", id, request.user_id, request.initial_plafond);
-                sprintf(log_process_feedback, "USER ADDED WITH INITIAL PLAFFOND OF %d", request.initial_plafond);
+                sprintf(log_process_feedback, "USER ADDED WITH INITIAL PLAFOND OF %d", request.initial_plafond);
             }
             else if(return_code == 1){
                 sprintf(response, "REJECTED");
@@ -969,6 +987,9 @@ int auth_engine_process(int id){
             if(msgsnd(message_queue_id, &response_message, sizeof(response_message.text), 0) == -1){
                 write_to_log("<ERROR SENDING RESPONSE MESSAGE>");
             }
+            #ifdef DEBUG
+            printf("<AE%d>DEBUG# Response sent to user %d: %s\n", id, request.user_id, response);
+            #endif
         }
 
         // Mark the auth engine as available
@@ -989,7 +1010,6 @@ int auth_engine_process(int id){
 }
 
 // Adds a mobile user to the shared memory, called by the auth engines
-
 int add_mobile_user(int user_id, int plafond){
     /*
         Returns:

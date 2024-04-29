@@ -8,7 +8,7 @@
 
 #define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
 //#define DEBUG // Comment this line to remove debug messages
-//#define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
+#define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
 #define LOG_SEMAPHORE "log_semaphore"
@@ -23,6 +23,7 @@
 #define BACK_PIPE "/tmp/BACK_PIPE"
 
 #include <semaphore.h>
+#include <pthread.h>   
 #include "queue.h"
 
 typedef struct{
@@ -47,6 +48,9 @@ typedef struct{
 
 // MIGHT REMOVE NESTED SHARED MEMORY AND JUST HAVE AN ARRAY OF ACTIVE AUTH ENGINES AS AUX SHM
 typedef struct{
+    pthread_mutex_t monitor_engine_mutex;
+    pthread_cond_t monitor_engine_cond;
+
     int *active_auth_engines;
 } AuxiliaryShm;
 

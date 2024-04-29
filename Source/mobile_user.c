@@ -26,6 +26,8 @@
 
 #include "global.h"
 
+#define EXIT_MESSAGE "DIE"
+
 /*
     Execution instructions:
     ./mobile_user {plafond} {max_requests} {delta_video} {delta_music} {delta_social} {data_ammount}
@@ -46,15 +48,18 @@ int initial_plafond; // Variable to save the initial plafond
 void *send_requests(void *args);
 void *message_receiver();
 void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount);
-
+void signal_threads_to_exit();
 void signal_handler(int signal);
 void clean_up();
 
 
 pthread_t request_threads[3];
-pthread_mutex_t max_requests_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t gen_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t exit_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_cond_t message_thread_started = PTHREAD_COND_INITIALIZER;
+pthread_t message_thread;
+int started_threads = 0; // This value has to be 4 to start the threads (3 senders + 1 message receiver)
+
 int requests_left;
 
 int threads_should_exit = 0; // Flag to signal the threads to exit
@@ -124,13 +129,7 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    // Send the initial request
-    #ifdef DEBUG
-    printf("DEBUG# Sending initial request to register user\n");
-    #endif
-
-    
-
+    // Send the initial request to register the user
     if(send_initial_request(initial_plafond) != 0){
         perror("<ERROR> Could not register user\n");
         close(fd_user_pipe); // Close the pipe
@@ -157,10 +156,9 @@ int main(int argc, char *argv[]){
     }
 
     // Create a thread to continuously receive messages from the message queue
-    pthread_t message_thread;
     pthread_create(&message_thread, NULL, message_receiver, NULL);
-    
-    printf("\n\n!!! USER ACCEPTED, START SENDING AUTH REQUESTS!!!\n\n");
+
+    printf("\n\n!!! USER ACCEPTED AND MESSAGE THREAD ACTIVE, START SENDING AUTH REQUESTS!!!\n\n");
 
     char *types[3] = {"VIDEO", "MUSIC", "SOCIAL"};
     int deltas[3] = {delta_video, delta_music, delta_social};
@@ -174,10 +172,17 @@ int main(int argc, char *argv[]){
         pthread_create(&request_threads[i], NULL, send_requests, (void*)arg);
     }
 
-    pthread_join(message_thread, NULL);
     for(int i = 0; i < 3; i++){
+        #ifdef DEBUG
+        printf("DEBUG# Waiting for thread %d to exit\n", i);
+        #endif
         pthread_join(request_threads[i], NULL);
     }
+    #ifdef DEBUG
+    printf("DEBUG# Waiting for message thread to exit\n");
+    #endif
+    
+    pthread_join(message_thread, NULL);
 
     signal_handler(SIGINT);
 
@@ -237,36 +242,35 @@ void *send_requests(void *arg){
     char type[10];
     strcpy(type, args->type);
 
-    // Condition variable to wait for the message thread to start
-    pthread_mutex_lock(&max_requests_mutex);
-    while(requests_left == 0){
-        pthread_cond_wait(&message_thread_started, &max_requests_mutex);
-    }
-    pthread_mutex_unlock(&max_requests_mutex);
+    #ifdef DEBUG
+    printf("<%s SENDER>DEBUG# Starting, delta: %d, data ammount: %d\n", type, delta, data_ammount);
+    #endif
 
-
-    printf("Thread %s starting, delta: %d, data ammount: %d\n", type, delta, data_ammount);
-
-    while(!threads_should_exit){
-        pthread_mutex_lock(&max_requests_mutex);
-        if(requests_left > 0){
-            #ifdef DEBUG
-            printf("DEBUG# There are %d requests left\n", requests_left);
-            #endif
-            requests_left--; 
-            pthread_mutex_unlock(&max_requests_mutex);
-        }
-        else{
-            // Asking for more than the initial plafond will force the system to remove the user
-            sprintf(message, "%d#%s#%d", getpid(), type, initial_plafond + 1); 
-
-            pthread_mutex_unlock(&max_requests_mutex);
+    // threads_should_exit does not need to be checked in mutual exclusion because reading and writing ints is an atomic operation
+    while(1){
+        // Check if theres a signal to exit
+        pthread_mutex_lock(&exit_signal_mutex);
+        if(threads_should_exit){
+            pthread_mutex_unlock(&exit_signal_mutex);
             break;
         }
+        pthread_mutex_unlock(&exit_signal_mutex);
+
+        // Check if there are any requests left
+        pthread_mutex_lock(&gen_mutex); // Lock
+        if(requests_left <= 0){
+            signal_threads_to_exit();
+            break;
+        }
+        #ifdef DEBUG
+        printf("DEBUG# There are %d requests left\n", requests_left);
+        #endif
+        requests_left--; 
+        pthread_mutex_unlock(&gen_mutex); // Unlock
         
 
         #ifdef DEBUG
-        printf("DEBUG# Thread %s sending request\n", type);
+        printf("<%s SENDER>DEBUG# Thread sending request\n", type);
         #endif
         sprintf(message, "%d#%s#%d", getpid(), type, data_ammount);
 
@@ -274,43 +278,75 @@ void *send_requests(void *arg){
         
         // Sleep for delta milliseconds
         sleep_milliseconds(delta);
+    
     }
+    // Unlock mutex
+    pthread_mutex_unlock(&gen_mutex);
+
+    //signal_threads_to_exit();
 
     free(args);
+    printf("%s SENDER THREAD EXITING\n", type);
     return NULL;
 }
 
-void signal_handler(int signal){
-    if(signal == SIGINT){
-        printf("<SIGNAL> SIGINT received\n");
-        clean_up();
-        exit(0);
+// We need to send a message thread to exit because msgrcv is a blocking function
+void signal_threads_to_exit(){
+    pthread_mutex_lock(&exit_signal_mutex);
+    threads_should_exit = 1;
+    pthread_mutex_unlock(&exit_signal_mutex);
+    
+    #ifdef DEBUG
+    printf("DEBUG# Sending message to message queue\n");
+    #endif
+
+    QueueMessage qmsg;
+    qmsg.type = getpid();
+    strcpy(qmsg.text, EXIT_MESSAGE);
+    if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+        perror("<ERROR> Could not send message to message queue\n");
+        threads_should_exit = 1;
     }
+
+    char mes[PIPE_BUFFER_SIZE];
+    // This forces the user to be removed lmfao
+    sprintf(mes, "%d#SOCIAL#%d", getpid(), initial_plafond + 1);
+
 }
 
 void *message_receiver(){
     // Message queue message
     QueueMessage qmsg;
 
+    #ifdef DEBUG
+    printf("<MESSAGE THREAD>DEBUG# Message thread started\n");
+    #endif
 
-    // Condition variable to signal the threads to start
-    pthread_mutex_lock(&max_requests_mutex);
-    pthread_cond_signal(&message_thread_started);
-    pthread_mutex_unlock(&max_requests_mutex);
-    
-    while(!threads_should_exit){
+    while(1){
+        // Check if theres a signal to exit in mutual exclusion
+        pthread_mutex_lock(&exit_signal_mutex);
+        if(threads_should_exit){
+            pthread_mutex_unlock(&exit_signal_mutex);
+            break;
+        }
+        pthread_mutex_unlock(&exit_signal_mutex);
+
+        #ifdef DEBUG
+        printf("<MESSAGE THREAD>DEBUG# Waiting for message from message queue\n");
+        #endif
         // Get messages with type equal to the user's pid
         if(msgrcv(user_msq_id, &qmsg, sizeof(QueueMessage), getpid(), 0) == -1){
             perror("<ERROR> Could not receive message from message queue<\n");
-            clean_up();
-            exit(1);
+            threads_should_exit = 1;
         }
         printf("Message received: %s\n", qmsg.text);
-        if(strcmp(qmsg.text, "DIE") == 0){        
-            clean_up();
-            return NULL;
-        }
+        // if(strcmp(qmsg.text, EXIT_MESSAGE) == 0){        
+        //     signal_threads_to_exit();
+        // }
+    
     }
+
+    printf("MESSAGE THREAD EXITING\n");
 
     return NULL;
 }
@@ -333,7 +369,9 @@ void print_arguments(int initial_plafond, int requests_left, int delta_video, in
 void clean_up(){
     // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
 
-    threads_should_exit = 1; 
+
+    // Send a message to the message queue to signal the message thread to exit
+    signal_threads_to_exit();
 
     // Wait for the threads to exit
     #ifdef DEBUG
@@ -342,6 +380,7 @@ void clean_up(){
     for(int i = 0; i < 3; i++){
         pthread_join(request_threads[i], NULL);
     }
+    pthread_join(message_thread, NULL);
 
     #ifdef DEBUG
     printf("DEBUG# Closing user pipe\n");
@@ -351,10 +390,18 @@ void clean_up(){
     // BE CAREFUL DELETING THE MESSAGE QUEUE, IT ALSO DELETES IT FOR THE MAIN PROCESS
 
     #ifdef DEBUG
-    printf("DEBUG# Destroying max_requests_mutex\n");
+    printf("DEBUG# Destroying gen_mutex\n");
     #endif
     // Destroy the mutex
-    pthread_mutex_destroy(&max_requests_mutex);
+    pthread_mutex_destroy(&gen_mutex);
 
 
+}
+
+void signal_handler(int signal){
+    if(signal == SIGINT){
+        printf("<SIGNAL> SIGINT received\n");
+        clean_up();
+        exit(0);
+    }
 }

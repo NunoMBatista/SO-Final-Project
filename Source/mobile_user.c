@@ -42,7 +42,8 @@ void sleep_milliseconds(int milliseconds);
 int is_positive_integer(char *str);
 int send_initial_request(int initial_plafond);
 void *send_requests(void *args);
-void *message_receiver(void *args);
+void *message_receiver();
+void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount);
 
 void signal_handler(int signal);
 void clean_up();
@@ -50,6 +51,8 @@ void clean_up();
 
 pthread_t request_threads[3];
 pthread_mutex_t max_requests_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t message_thread_started = PTHREAD_COND_INITIALIZER;
 int requests_left;
 
 int threads_should_exit = 0; // Flag to signal the threads to exit
@@ -98,6 +101,9 @@ int main(int argc, char *argv[]){
     char message[200];
     sprintf(message, "MOBILE USER STARTING - USER ID: %d\n PLAFOND: %d\n MAX REQUESTS: %d\n DELTA VIDEO: %d\n DELTA MUSIC: %d\n DELTA SOCIAL: %d\n DATA AMMOUNT: %d\n", getpid(), initial_plafond, requests_left, delta_video, delta_music, delta_social, data_ammount);
     
+    print_arguments(initial_plafond, requests_left, delta_video, delta_music, delta_social, data_ammount);
+    printf("Waiting for the system to accept registration request...\n");
+
     #ifdef DEBUG
     printf("DEBUG# Creating user message queue\n");
     #endif
@@ -120,6 +126,9 @@ int main(int argc, char *argv[]){
     #ifdef DEBUG
     printf("DEBUG# Sending initial request to register user\n");
     #endif
+
+    
+
     if(send_initial_request(initial_plafond) != 0){
         perror("<ERROR> Could not register user\n");
         close(fd_user_pipe); // Close the pipe
@@ -145,8 +154,10 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
+    // Create a thread to continuously receive messages from the message queue
     pthread_t message_thread;
-
+    pthread_create(&message_thread, NULL, message_receiver, NULL);
+    
     printf("\n\n!!! USER ACCEPTED, START SENDING AUTH REQUESTS!!!\n\n");
 
     char *types[3] = {"VIDEO", "MUSIC", "SOCIAL"};
@@ -161,6 +172,7 @@ int main(int argc, char *argv[]){
         pthread_create(&request_threads[i], NULL, send_requests, (void*)arg);
     }
 
+    pthread_join(message_thread, NULL);
     for(int i = 0; i < 3; i++){
         pthread_join(request_threads[i], NULL);
     }
@@ -224,7 +236,11 @@ void *send_requests(void *arg){
     strcpy(type, args->type);
 
     // Condition variable to wait for the message thread to start
-    while()
+    pthread_mutex_lock(&max_requests_mutex);
+    while(requests_left == 0){
+        pthread_cond_wait(&message_thread_started, &max_requests_mutex);
+    }
+    pthread_mutex_unlock(&max_requests_mutex);
 
 
     printf("Thread %s starting, delta: %d, data ammount: %d\n", type, delta, data_ammount);
@@ -264,6 +280,48 @@ void signal_handler(int signal){
         clean_up();
         exit(0);
     }
+}
+
+void *message_receiver(){
+    // Message queue message
+    QueueMessage qmsg;
+
+
+    // Condition variable to signal the threads to start
+    pthread_mutex_lock(&max_requests_mutex);
+    pthread_cond_signal(&message_thread_started);
+    pthread_mutex_unlock(&max_requests_mutex);
+    
+    while(!threads_should_exit){
+        // Get messages with type equal to the user's pid
+        if(msgrcv(user_msq_id, &qmsg, sizeof(QueueMessage), getpid(), 0) == -1){
+            perror("<ERROR> Could not receive message from message queue<\n");
+            clean_up();
+            exit(1);
+        }
+        printf("Message received: %s\n", qmsg.text);
+        if(strcmp(qmsg.text, "DIE") == 0){        
+            clean_up();
+            return NULL;
+        }
+    }
+
+    return NULL;
+}
+
+void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount) {
+    printf("\n");
+    printf("************************************\n");
+    printf("* Mobile User Data                 *\n");
+    printf("************************************\n");
+    printf("* Initial Plafond: %15d *\n", initial_plafond);
+    printf("* Requests Left:   %15d *\n", requests_left);
+    printf("* Delta Video:     %15d *\n", delta_video);
+    printf("* Delta Music:     %15d *\n", delta_music);
+    printf("* Delta Social:    %15d *\n", delta_social);
+    printf("* Data Amount:     %15d *\n", data_ammount);
+    printf("************************************\n");
+    printf("\n");
 }
 
 void clean_up(){

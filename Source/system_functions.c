@@ -954,6 +954,10 @@ int auth_engine_process(int id){
         sprintf(log_message, "AUTHORIZATION_ENGINE %d: %s -> %s", id, log_message_type, log_process_feedback);
         write_to_log(log_message);
 
+        #ifdef SHARED_MEMORY_DISPLAY
+        print_shared_memory();
+        #endif
+
         if(response_applicable){
             #ifdef DEBUG
             printf("<AE%d>DEBUG# Sending response to user: %s\n", id, response);
@@ -966,10 +970,6 @@ int auth_engine_process(int id){
                 write_to_log("<ERROR SENDING RESPONSE MESSAGE>");
             }
         }
-
-        #ifdef SHARED_MEMORY_DISPLAY
-        print_shared_memory();
-        #endif
 
         // Mark the auth engine as available
         sem_wait(aux_shm_sem);
@@ -1089,7 +1089,10 @@ int deactivate_user(int user_id){
             0 - User deactivated successfully
             -1 - Couldn't find an active user with provided id
     */
-    
+    char log_message[PIPE_BUFFER_SIZE];
+    sprintf(log_message, "DEACTIVATING USER %d", user_id);
+    write_to_log(log_message);
+
     for(int i = 0; i < config->MOBILE_USERS; i++){
         // Check if the user is active and has the same id
         if(shared_memory->users[i].isActive == 1 && shared_memory->users[i].user_id == user_id){

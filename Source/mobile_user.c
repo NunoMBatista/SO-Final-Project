@@ -41,6 +41,8 @@ typedef struct{
 void sleep_milliseconds(int milliseconds);
 int is_positive_integer(char *str);
 int send_initial_request(int initial_plafond);
+int initial_plafond; // Variable to save the initial plafond
+
 void *send_requests(void *args);
 void *message_receiver();
 void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount);
@@ -89,7 +91,7 @@ int main(int argc, char *argv[]){
     #endif
     // Read the arguments
     // Variable to save in the shared memory
-    int initial_plafond = atoi(argv[1]);
+    initial_plafond = atoi(argv[1]);
 
     // Variables to be saved locally
     requests_left = atoi(argv[2]);
@@ -251,13 +253,17 @@ void *send_requests(void *arg){
             #ifdef DEBUG
             printf("DEBUG# There are %d requests left\n", requests_left);
             #endif
-            pthread_mutex_unlock(&max_requests_mutex);
             requests_left--; 
+            pthread_mutex_unlock(&max_requests_mutex);
         }
         else{
+            // Asking for more than the initial plafond will force the system to remove the user
+            sprintf(message, "%d#%s#%d", getpid(), type, initial_plafond + 1); 
+
             pthread_mutex_unlock(&max_requests_mutex);
             break;
         }
+        
 
         #ifdef DEBUG
         printf("DEBUG# Thread %s sending request\n", type);

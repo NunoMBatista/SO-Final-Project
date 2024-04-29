@@ -73,6 +73,9 @@ int auth_engine_process(int id){
         int response_applicable = 0; // 1 if there needs to be a response sent to the message queue
         char type = request.request_type; // Make the code more readable
  
+        #ifdef DEBUG
+        printf("<AE%d>DEBUG# Waiting for shared memory semaphore\n", id);
+        #endif
         sem_wait(shared_memory_sem); // Lock shared memory
 
         int user_index = get_user_index(request.user_id);
@@ -82,11 +85,11 @@ int auth_engine_process(int id){
             // THE USER DOES NOT EXIST
             
             
-            response_applicable = 1; 
+            //response_applicable = 1; 
             
             type = -1; // Skip if-else block
 
-            sprintf(response, "DIE");
+            //sprintf(response, "DIE");
 
             sprintf(log_message_type, "INVALID REQUEST");
             sprintf(log_process_feedback, "USER %d DOES NOT EXIST", request.user_id);
@@ -121,43 +124,25 @@ int auth_engine_process(int id){
         // It's a data request
         if((type == 'V') || (type == 'M') || (type == 'S')){
             int add_stats = request.data_amount; // The amount of data to add to the user stats
-
+            
             return_code = remove_from_user(request.user_id, add_stats);
 
-            // There is still data left after removing
+            // If the user had enough data and still has some left
             if(return_code == 1){
                 sprintf(log_process_feedback, "REMOVED %d FROM USER %d", request.data_amount, request.user_id);
             }
-            // Theres no data left after removing
+            
+            // If the user had enough data but reached 0
             if(return_code == 2){
-                
-                // Kill user
-                //deactivate_user(request.user_id);
-
                 sprintf(log_process_feedback, "USER %d HAS REACHED 0 PLAFOND AFTER REMOVING %d", request.user_id, request.data_amount);
-
-    
-                // SEND MESSAGE TELLING THE USER TO SHUTDOWN
-                //response_applicable = 1;
-                //sprintf(response, "DIE");
             }
+            
             // The user didn't have enough data
             if(return_code == -1){
-                
                 // Don't add anything to the total stats
                 add_stats = 0; 
-
-                // Kill user
-                //deactivate_user(request.user_id);
-
                 sprintf(log_process_feedback, "USER %d DOES NOT HAVE ENOUGH PLAFOND TO GET %d, REMOVING USER", request.user_id, request.data_amount);
-
-                // SEND MESSAGE TELLING THE USER TO SHUTDOWN
-                //response_applicable = 1; 
-                //sprintf(response, "DIE");               
-
             }
-            // Set type in the log message
 
             // Get respective log message type and add the stats to the total
             switch(type){
@@ -175,24 +160,14 @@ int auth_engine_process(int id){
                     break;
             }
 
+
+            sem_post(shared_memory_sem); // Unlock shared memory 
             // NOTIFY MONITOR ENGINE
+            pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
+            pthread_cond_signal(&auxiliary_shm->monitor_engine_cond);
+            pthread_mutex_unlock(&auxiliary_shm->monitor_engine_mutex);
+
         }
-
-        //     case 'D':
-        //         // Try to send data to backoffice user
-        //         sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
-        //         break;
-        //     case 'R':
-        //         // Try to reset user data
-        //         sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA RESET REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
-        //         break;
-        //     case 'E':
-        //         // Tell backoffice that the request is invalid
-        //         sprintf(log_message, "AUTHORIZATION_ENGINE %d: INVALID REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
-        //         break;
-        //     default:
-        // }
-
         sem_post(shared_memory_sem); // Unlock shared memory 
 
         
@@ -328,25 +303,4 @@ int remove_from_user(int user_id, int amount){
         }
     }       
     return -2; // User not found
-}
-
-// Deactivates a user, called by the auth engines
-int deactivate_user(int user_id){
-    /*  
-        Returns:
-            0 - User deactivated successfully
-            -1 - Couldn't find an active user with provided id
-    */
-    char log_message[PIPE_BUFFER_SIZE];
-    sprintf(log_message, "DEACTIVATING USER %d", user_id);
-    write_to_log(log_message);
-
-    for(int i = 0; i < config->MOBILE_USERS; i++){
-        // Check if the user is active and has the same id
-        if(shared_memory->users[i].isActive == 1 && shared_memory->users[i].user_id == user_id){
-            shared_memory->users[i].isActive = 0;
-            return 0;
-        }
-    }
-    return -1;
 }

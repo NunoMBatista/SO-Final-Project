@@ -34,10 +34,11 @@ int auth_engine_process(int id);
 int add_mobile_user(int user_id, int plafond);
 int get_user_index(int user_id);
 int remove_from_user(int user_id, int amount);
-int deactivate_user(int user_id);
 
 // Monitor Engine functions (monitor_engine.c)
 void monitor_engine_process();
+int deactivate_user(int user_id, int user_index);
+int notify_user(int user_id, int percentage);
 
 // Cleanup (clean_up.c)
 void clean_up();

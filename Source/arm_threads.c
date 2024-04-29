@@ -355,7 +355,7 @@ void parse_and_send(char *message){
         }
         else{
             #ifdef DEBUG
-            printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message);
+            printf("<RECEIVER>DEBUG# Sending message to video queue: %s\n", message_copy);
             #endif
             push(video_queue, request);
         }
@@ -368,7 +368,7 @@ void parse_and_send(char *message){
         }
         else{
             #ifdef DEBUG
-            printf("<RECEIVER>DEBUG# Sending message to other queue: %s\n", message);
+            printf("<RECEIVER>DEBUG# Sending message to other queue: %s\n", message_copy);
             #endif
             push(other_queue, request);
         }

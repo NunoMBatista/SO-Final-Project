@@ -32,6 +32,8 @@
 /*
     To implement:
 
+    GEN - Might need stdout semaphore
+
     AE - Get stats
     AE - Reset stats
 

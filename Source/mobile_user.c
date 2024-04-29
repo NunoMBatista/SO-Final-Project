@@ -339,11 +339,19 @@ void *message_receiver(){
             perror("<ERROR> Could not receive message from message queue<\n");
             threads_should_exit = 1;
         }
-        printf("Message received: %s\n", qmsg.text);
-        // if(strcmp(qmsg.text, EXIT_MESSAGE) == 0){        
-        //     signal_threads_to_exit();
-        // }
-    
+
+        if(is_positive_integer(qmsg.text)){
+            printf("\n\n\t!!! THE USER %d HAS SPENT %d%% OF THE PLAFOND !!!\n\n\n", getpid(), atoi(qmsg.text));
+        }
+
+        if((atoi(qmsg.text) == 100) || (strcmp(qmsg.text, EXIT_MESSAGE) == 0)){
+            #ifdef DEBUG
+            printf("<MESSAGE THREAD>DEBUG# Received exit message\n");
+            #endif
+            signal_threads_to_exit();
+            printf("\n\n\n!!! LEBRON JAAAAAAAAAAAAAAAAAAMES TWWENTTT Y ONEEEEEEEE YOU STUPEE, NO AHM NAAAAAAAGHT WAS 9 + 10 :3\n\n\n\n");
+            break;
+        }    
     }
 
     printf("MESSAGE THREAD EXITING\n");

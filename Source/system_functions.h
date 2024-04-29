@@ -29,6 +29,11 @@ void write_to_log(char *message);
 void clean_up();
 void signal_handler(int signal);
 
+int add_mobile_user(int user_id, int plafond);
+int get_user_index(int user_id);
+int remove_from_user(int user_id, int amount);
+int deactivate_user(int user_id);
+
 int create_message_queue();
 
 void deploy_extra_engine();

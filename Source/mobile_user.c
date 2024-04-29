@@ -42,8 +42,11 @@ void sleep_milliseconds(int milliseconds);
 int is_positive_integer(char *str);
 int send_initial_request(int initial_plafond);
 void *send_requests(void *args);
+void *message_receiver(void *args);
+
 void signal_handler(int signal);
 void clean_up();
+
 
 pthread_t request_threads[3];
 pthread_mutex_t max_requests_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -55,8 +58,6 @@ int fd_user_pipe;
 int user_msq_id;
 
 int main(int argc, char *argv[]){
-
-
     #ifdef DEBUG
     printf("DEBUG# Mobile user starting - USER ID: %d\n", getpid());
     printf("DEBUG# Redirecting SIGINT to signal handler\n");
@@ -101,7 +102,7 @@ int main(int argc, char *argv[]){
     printf("DEBUG# Creating user message queue\n");
     #endif
     key_t queue_key = ftok(MESSAGE_QUEUE_KEY, 'a'); 
-    if((user_msq_id = msgget(queue_key, 0666 | IPC_CREAT)) == -1){
+    if((user_msq_id = msgget(queue_key, 0777 | IPC_CREAT)) == -1){
         perror("<ERROR> Could not create message queue\n");
         return 1;
     }
@@ -128,20 +129,35 @@ int main(int argc, char *argv[]){
     #ifdef DEBUG
     printf("DEBUG# Waiting for the initial request to be accepted\n");
     #endif
-    // QueueMessage qmsg;
-    // if(msgrcv(user_msq_id, &message, sizeof(message), getpid(), 0) == -1){
-    //     perror("<ERROR> Could not receive message from message queue\n");
-    //     close(fd_user_pipe); // Close the pipe
-    //     exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
-    // }
+    QueueMessage qmsg;
+    // Get messages with type equal to the user's pid
+    if(msgrcv(user_msq_id, &qmsg, sizeof(QueueMessage), getpid(), 0) == -1){
+        perror("<ERROR> Could not receive message from message queue\n");
+        close(fd_user_pipe); // Close the pipe
+        exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
+    }
+    #ifdef DEBUG
+    printf("DEBUG# Initial request response received: %s\n", qmsg.text);
+    #endif
+    if(qmsg.text[0] == 'R'){
+        printf("<ERROR> The user was not accepted\n");
+        clean_up();
+        exit(1);
+    }
+
+    pthread_t message_thread;
+
+    printf("\n\n!!! USER ACCEPTED, START SENDING AUTH REQUESTS!!!\n\n");
 
     char *types[3] = {"VIDEO", "MUSIC", "SOCIAL"};
     int deltas[3] = {delta_video, delta_music, delta_social};
     for(int i = 0; i < 3; i++){
         thread_args *arg = (thread_args*) malloc(sizeof(thread_args));
-        arg->data_ammount = data_ammount;
-        arg->delta = deltas[i];
-        strcpy(arg->type, types[i]);
+        
+        arg->data_ammount = data_ammount; // Pass the data amount per request
+        arg->delta = deltas[i]; // Pass the delta time between each type of request
+        strcpy(arg->type, types[i]); // Pass the type of request
+
         pthread_create(&request_threads[i], NULL, send_requests, (void*)arg);
     }
 
@@ -207,6 +223,10 @@ void *send_requests(void *arg){
     char type[10];
     strcpy(type, args->type);
 
+    // Condition variable to wait for the message thread to start
+    while()
+
+
     printf("Thread %s starting, delta: %d, data ammount: %d\n", type, delta, data_ammount);
 
     while(!threads_should_exit){
@@ -263,6 +283,8 @@ void clean_up(){
     printf("DEBUG# Closing user pipe\n");
     #endif
     close(fd_user_pipe);
+
+    // BE CAREFUL DELETING THE MESSAGE QUEUE, IT ALSO DELETES IT FOR THE MAIN PROCESS
 
     #ifdef DEBUG
     printf("DEBUG# Destroying max_requests_mutex\n");

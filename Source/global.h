@@ -7,15 +7,16 @@
 #define GLOBAL_H
 
 #define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
-#define DEBUG // Comment this line to remove debug messages
-#define PRETTY // Comment this line to remove pretty CLI 
+//#define DEBUG // Comment this line to remove debug messages
+//#define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
+#define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
 #define LOG_SEMAPHORE "log_semaphore"
 #define SHARED_MEMORY_SEMAPHORE "shared_memory_semaphore"
 #define AUXILIARY_SHM_SEMAPHORE "auxiliary_shm_semaphore"
 #define ENGINES_SEMAPHORE "engines_semaphore"
 
-#define MESSAGE_QUEUE_KEY "/tmp/message_queue_key"
+#define MESSAGE_QUEUE_KEY "message_queue_key"
 
 #define PIPE_BUFFER_SIZE 100
 #define USER_PIPE "/tmp/USER_PIPE"
@@ -57,7 +58,6 @@ typedef struct{
     int MAX_VIDEO_WAIT; // Max time that a video request can wait before being processed
     int MAX_OTHERS_WAIT; // Max time that a non-video request can wait before being processed
 } Config;
-
 
 
 // External declaration to be used in other files

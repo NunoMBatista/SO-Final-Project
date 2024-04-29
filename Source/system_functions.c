@@ -44,6 +44,8 @@
     ME - Condition variable
 
     SYS MAN - Finish tasks before exiting
+
+    <ARM> - Verificar se posso ter video_queue_mutex e other_queue_mutex
 */
 
 // Writes a message to the log file
@@ -193,13 +195,12 @@ void* receiver_thread(){
         // Parse and send the message to one of the queues
         parse_and_send(buffer);
 
-        printf("%s\n", buffer);
 
         #ifdef DEBUG    
         printf("<RECEIVER>DEBUG# Queue status:\n\tVideo: %d/%d\n\tOther: %d/%d\n\tExtra Engine: %d\n", video_queue->num_elements, video_queue->max_elements, other_queue->num_elements, other_queue->max_elements, extra_auth_engine); 
         #endif
 
-        #ifdef PRETTY
+        #ifdef QUEUE_PROGRESS_BAR
         printf("VIDEO QUEUE: ");
         print_progress(video_queue->num_elements, video_queue->max_elements);
         printf("OTHER QUEUE: ");
@@ -817,7 +818,7 @@ int auth_engine_process(int id){
         read(auth_engine_pipes[id][0], &request, sizeof(Request));
         
         #ifdef DEBUG
-        printf("<AE%d>DEBUG# Auth engine is now processing a request:\nUSER: %d\nTYPE: %c\nDATA: %d\nINITPLAF: %d\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
+        printf("<AE%d>DEBUG# Auth engine is now processing a request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
     
         #ifdef SLOWMOTION
@@ -825,44 +826,150 @@ int auth_engine_process(int id){
         #endif
         sleep_milliseconds(config->AUTH_PROC_TIME);
 
-        char log_message[PIPE_BUFFER_SIZE];
+        char log_message[PIPE_BUFFER_SIZE + 500]; // Write to the log
+        char log_message_type[PIPE_BUFFER_SIZE]; // Used to write to the log the type of request processed
+        char log_process_feedback[PIPE_BUFFER_SIZE]; // Used to write to the log the result of the request processing
+       
+       
+        int return_code; // Identifies the return codes from functions
+        char response[PIPE_BUFFER_SIZE]; // Send back to the user through the message queue
+        int response_applicable = 0; // 1 if there needs to be a response sent to the message queue
+        char type = request.request_type; // Make the code more readable
+ 
+        sem_wait(shared_memory_sem); // Lock shared memory
 
-        switch(request.request_type){
-            case 'I':
-                // Try to register user
-                
+        int user_index = get_user_index(request.user_id);
+        
+        // If the user is not asking to be added and does not exist
+        if((request.request_type != 'I') && (user_index == -1)){
+            // THE USER DOES NOT EXIST
+            response_applicable = 1; 
+            type = -1; // Skip if-else block
 
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
-                break;
-            case 'V':
-                // Try to authorize video request
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: VIDEO AUTHORIZATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
-                break;
-            case 'M':
-                // Try to authorize music request
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: MUSIC AUTHORIZATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
-                break;
-            case 'S':
-                printf("SOCIAL REQUEST\n");
-                // Try to authorize social request
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: SOCIAL AUTHORIZATION REQUEST (ID = %d) PROCESSING COMPLETED", id, request.user_id);
-                break;
-            case 'D':
-                // Try to send data to backoffice user
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
-                break;
-            case 'R':
-                // Try to reset user data
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA RESET REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
-                break;
-            case 'E':
-                // Tell backoffice that the request is invalid
-                sprintf(log_message, "AUTHORIZATION_ENGINE %d: INVALID REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
-                break;
-            default:
-            
+            sprintf(response, "DIE");
+
+            sprintf(log_message_type, "INVALID REQUEST");
+            sprintf(log_process_feedback, "USER %d DOES NOT EXIST", request.user_id);
         }
+
+        // It's a registration request
+        if(type == 'I'){
+            sprintf(log_message_type, "USER REGISTRATION REQUEST");
+            // Try to register user
+            
+            // There's a need to tell the user if the request was accepted or rejected  
+            response_applicable = 1; 
+
+            return_code = add_mobile_user(request.user_id, request.initial_plafond);
+            if(return_code  == 0){
+                sprintf(response, "ACCEPTED");
+                //sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED -> USER ADDED WITH INITIAL PLAFFOND OF %d", id, request.user_id, request.initial_plafond);
+                sprintf(log_process_feedback, "USER ADDED WITH INITIAL PLAFFOND OF %d", request.initial_plafond);
+            }
+            else if(return_code == 1){
+                sprintf(response, "REJECTED");
+                //sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED -> SHARED MEMORY IS FULL => USER NOT ADDED", id, request.user_id);
+                sprintf(log_process_feedback, "SHARED MEMORY IS FULL => USER NOT ADDED");
+            }
+            else if(return_code == 2){
+                sprintf(response, "REJECTED");
+                //sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED -> USER ALREADY EXISTS => USER NOT ADDED", id, request.user_id);
+                sprintf(log_process_feedback, "USER ALREADY EXISTS => USER NOT ADDED");
+            }
+        }
+
+        // It's a data request
+        if((type == 'V') || (type == 'M') || (type == 'S')){
+            int add_stats = request.data_amount; // The amount of data to add to the user stats
+
+            return_code = remove_from_user(request.user_id, add_stats);
+
+            // There is still data left after removing
+            if(return_code == 1){
+                sprintf(log_process_feedback, "REMOVED %d FROM USER %d", request.data_amount, request.user_id);
+            }
+            // Theres no data left after removing
+            if(return_code == 2){
+                deactivate_user(request.user_id);
+                sprintf(log_process_feedback, "USER %d HAS REACHED 0 PLAFOND AFTER REMOVING %d", request.user_id, request.data_amount);
+
+    
+                // SEND MESSAGE TELLING THE USER TO SHUTDOWN
+                response_applicable = 1;
+                sprintf(response, "DIE");
+            }
+            // The user didn't have enough data
+            if(return_code == -1){
+                
+                // Don't add anything to the total stats
+                add_stats = 0; 
+
+                deactivate_user(request.user_id);
+                sprintf(log_process_feedback, "USER %d DOES NOT HAVE ENOUGH PLAFOND TO GET %d, REMOVING USER", request.user_id, request.data_amount);
+
+                // SEND MESSAGE TELLING THE USER TO SHUTDOWN
+                response_applicable = 1; 
+                sprintf(response, "DIE");               
+
+            }
+            // Set type in the log message
+
+            // Get respective log message type and add the stats to the total
+            switch(type){
+                case 'V':
+                    sprintf(log_message_type, "VIDEO AUTHORIZATION REQUEST");
+                    shared_memory->spent_video += add_stats;
+                    break;
+                case 'M':
+                    sprintf(log_message_type, "MUSIC AUTHORIZATION REQUEST");
+                    shared_memory->spent_music += add_stats;
+                    break;
+                case 'S':
+                    sprintf(log_message_type, "SOCIAL AUTHORIZATION REQUEST");
+                    shared_memory->spent_social += add_stats;
+                    break;
+            }
+
+            // NOTIFY MONITOR ENGINE
+        }
+
+        //     case 'D':
+        //         // Try to send data to backoffice user
+        //         sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
+        //         break;
+        //     case 'R':
+        //         // Try to reset user data
+        //         sprintf(log_message, "AUTHORIZATION_ENGINE %d: DATA RESET REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
+        //         break;
+        //     case 'E':
+        //         // Tell backoffice that the request is invalid
+        //         sprintf(log_message, "AUTHORIZATION_ENGINE %d: INVALID REQUEST FROM BACKOFFICE USER PROCESSING COMPLETED", id);
+        //         break;
+        //     default:
+        // }
+
+        sem_post(shared_memory_sem); // Unlock shared memory 
+
+        
+        sprintf(log_message, "AUTHORIZATION_ENGINE %d: %s -> %s", id, log_message_type, log_process_feedback);
         write_to_log(log_message);
+
+        if(response_applicable){
+            #ifdef DEBUG
+            printf("<AE%d>DEBUG# Sending response to user: %s\n", id, response);
+            #endif
+            QueueMessage response_message;
+            // The type must be the user's id for it to be delivered to the correct user
+            response_message.type = request.user_id; 
+            strcpy(response_message.text, response);
+            if(msgsnd(message_queue_id, &response_message, sizeof(response_message.text), 0) == -1){
+                write_to_log("<ERROR SENDING RESPONSE MESSAGE>");
+            }
+        }
+
+        #ifdef SHARED_MEMORY_DISPLAY
+        print_shared_memory();
+        #endif
 
         // Mark the auth engine as available
         sem_wait(aux_shm_sem);
@@ -873,7 +980,7 @@ int auth_engine_process(int id){
         sem_post(engines_sem);
 
         #ifdef DEBUG
-        printf("<AE%d>DEBUG# Auth engine finished processing request: request:\nUSER: %d\nTYPE: %c\nDATA: %d\nINITPLAF: %d\nIt's available again\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
+        printf("<AE%d>DEBUG# Auth engine finished processing request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\nIt's available again\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
 
     }
@@ -882,11 +989,17 @@ int auth_engine_process(int id){
 }
 
 // Adds a mobile user to the shared memory, called by the auth engines
+
 int add_mobile_user(int user_id, int plafond){
+    /*
+        Returns:
+            0 - User added successfully
+            1 - Shared memory is full
+            2 - User already exists
+    */
     #ifdef DEBUG
     printf("DEBUG# Adding user %d to shared memory\n", user_id);
     #endif
-    sem_wait(shared_memory_sem); // Lock shared memory semaphore
 
     // Check if the shared memory is full
     if(shared_memory->num_users == config->MOBILE_USERS){
@@ -898,19 +1011,17 @@ int add_mobile_user(int user_id, int plafond){
             // Check if there's a user with the same id already in the shared memory
             if(shared_memory->users[i].user_id == user_id){ 
                 write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
-                return 1;
+                return 2;
             }
             
             shared_memory->users[i].isActive = 1; // Set user as active
-            shared_memory->users[i].user_id = user_id;
-            shared_memory->users[i].initial_plafond = plafond;
-            shared_memory->users[i].spent_plafond = 0;
+            shared_memory->users[i].user_id = user_id; // Set user id
+            shared_memory->users[i].initial_plafond = plafond; // Set initial plafond
+            shared_memory->users[i].spent_plafond = 0; // Set spent plafond
             break;
         }
     }
     
-    sem_post(shared_memory_sem); // Unlock shared memory semaphore
-
     #ifdef DEBUG
     printf("DEBUG# User %d added to shared memory\n", user_id);
     #endif
@@ -921,15 +1032,108 @@ int add_mobile_user(int user_id, int plafond){
     return 0;
 }
 
+// Gets user index in shared memory, called by the auth engines
+int get_user_index(int user_id){
+    /*
+        Returns:
+            -1 - User not found
+            i - User index
+            config->MOBILE_USERS - backoffice user
+    */
+    
+    if(user_id == 1){
+        return config->MOBILE_USERS;
+    }
+    
+    for(int i = 0; i < config->MOBILE_USERS; i++){
+        // Check if the user is active and has the same id
+        if((shared_memory->users[i].isActive == 1) && (shared_memory->users[i].user_id == user_id)){
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Removes an ammount from the user's plafond, called by the auth engines
+int remove_from_user(int user_id, int amount){
+    /*
+        Returns:
+            1 - Success and remaining > 0
+            2 - Sucess and remaining = 0
+            -1 - User does not have enough plafond
+    */
+
+    // Returns the ammount taken from the user
+    for(int i = 0; i < config->MOBILE_USERS; i++){
+        if(shared_memory->users[i].user_id == user_id){
+            shared_memory->users[i].spent_plafond += amount;
+            int remaining = shared_memory->users[i].initial_plafond - shared_memory->users[i].spent_plafond;
+            if(remaining == 0){
+                return 2;
+            }
+            if(remaining < 0){                
+                return -1;
+            }
+            if(remaining > 0){
+                return 1;
+            }
+        }
+    }       
+    return -2; // User not found
+}
+
+// Deactivates a user, called by the auth engines
+int deactivate_user(int user_id){
+    /*  
+        Returns:
+            0 - User deactivated successfully
+            -1 - Couldn't find an active user with provided id
+    */
+    
+    for(int i = 0; i < config->MOBILE_USERS; i++){
+        // Check if the user is active and has the same id
+        if(shared_memory->users[i].isActive == 1 && shared_memory->users[i].user_id == user_id){
+            shared_memory->users[i].isActive = 0;
+            return 0;
+        }
+    }
+    return -1;
+}
+
 void print_shared_memory(){
     #ifdef DEBUG
     printf("DEBUG# Printing current state of the shared memory...\n");
     #endif
 
-    printf("Shared memory:\n");
+    printf("\n-> Current state of the shared memory <-\n");
+    
+    
+    printf("Spent Video: %d\n", shared_memory->spent_video);
+    printf("Spent Music: %d\n", shared_memory->spent_music);
+    printf("Spent Social: %d\n", shared_memory->spent_social);
+    printf("\n");
+
     for(int i = 0; i < config->MOBILE_USERS; i++){
         if(shared_memory->users[i].isActive == 1){
-            printf("\tUser %d has plafond: %d\n", shared_memory->users[i].user_id, shared_memory->users[i].initial_plafond - shared_memory->users[i].spent_plafond);
+            int initial = shared_memory->users[i].initial_plafond;
+            int spent = shared_memory->users[i].spent_plafond;
+            int remaining = initial - spent;
+
+            printf("User %d:\n", shared_memory->users[i].user_id);
+            printf("\tInitial Plafond: %d\n", initial);
+            printf("\tSpent Plafond: %d\n", spent);
+            printf("\tRemaining Plafond: %d\n", remaining);
+
+            printf("\tProgress: [");
+            int progress = (int)(((double)spent / initial) * 50);
+            for(int j = 0; j < 50; j++){
+                if(j < progress){
+                    printf("#");
+                } else {
+                    printf("-");
+                }
+            }
+            printf("]\n\n");
         }
     }
 }
@@ -953,17 +1157,6 @@ int create_message_queue(){
         write_to_log("<ERROR CREATING MESSAGE QUEUE>");
         return 1;
     }
-
-
-    //Send test message
-    QueueMessage message;
-    message.type = 1; 
-    strcpy(message.text, "Test message");
-    if(msgsnd(message_queue_id, &message, sizeof(message.text), 0) == -1){
-        write_to_log("<ERROR SENDING TEST MESSAGE>");
-        return 1;
-    }
-
     return 0;
 }
 
@@ -1154,6 +1347,22 @@ void clean_up(){
         if(shmctl(aux_shm_id, IPC_RMID, NULL) == -1){
             write_to_log("<ERROR DELETING AUXILIARY SHARED MEMORY>");
         }
+    }
+
+    #ifdef DEBUG
+    printf("<SYS MAN>DEBUG# Destroying message queue\n");
+    #endif
+    // Destroy message queue
+    if(msgctl(message_queue_id, IPC_RMID, NULL) == -1){
+        write_to_log("<ERROR DESTROYING MESSAGE QUEUE>");
+    }
+    
+    #ifdef DEBUG
+    printf("<SYS MAN>DEBUG# Removing message queue key file\n");
+    #endif
+    // Remove message queue key file
+    if(remove(MESSAGE_QUEUE_KEY) == -1){
+        write_to_log("<ERROR REMOVING MESSAGE QUEUE KEY FILE>");
     }
 
     // Free config memory

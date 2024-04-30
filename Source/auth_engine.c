@@ -294,7 +294,7 @@ int remove_from_user(int user_id, int amount){
                 return 2;
             }
             if(remaining < 0){             
-                shared_memory->users[i].spent_plafond = 0; // Do not exceede the limit   
+                shared_memory->users[i].spent_plafond = shared_memory->users[i].initial_plafond; // Do not exceede the limit   
                 return -1;
             }
             if(remaining > 0){

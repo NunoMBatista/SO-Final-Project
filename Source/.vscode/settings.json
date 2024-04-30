@@ -62,6 +62,7 @@
     "fcntl.h": "c",
     "shm.h": "c",
     "semaphore.h": "c",
-    "random": "c"
+    "random": "c",
+    "system_functions.h": "c"
   }
 }

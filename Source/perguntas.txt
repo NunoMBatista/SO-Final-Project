@@ -1,0 +1,24 @@
+Perguntar:
+
+- Sendo que o número máximo de pedidos de autorização é apenas guardado no mobile user, de modo a informar a shared_memory que o user atual deve ser descartado, podemos só enviar uma mensagem pelo pipe de vídeo (para ter prioridade) que pede o plafond inicial inteiro?
+// ENVIAR MENSAGEM ESPECIAL QUE ACEDE LOGO À SHM PARA TIRAR O USER
+
+- É má prática chamar forçosamente o signal_handler?
+// SIM, CHAMA SÓ O CLEANUP
+
+- Se o monitor engine é um processo separado dos outros, como é que é suposto a sua condition variable receber sinais
+
+- Só um mutex para as queues?
+// SIM 
+
+- Quando o tempo limite de um pedido é excedido, este só é discartado após ser lido pelo sender?
+
+- Há problema com nested shared memory?
+// NÃO
+
+- É suposto ignorar SIGINT durante o setup inteiro?
+
+- Podemos usar o nome de um pipe para criar uma key para a msgqueue
+
+- é suposto as 3 threads do mobile user começarem exatamente ao mesmo tempo?
+// NÃO É PRECISO

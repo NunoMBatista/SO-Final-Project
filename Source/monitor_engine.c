@@ -34,10 +34,7 @@ pthread_t periodic_notifications_thread; // Implement later
 // Monitor Engine main function
 // Will notify users once they have reached 80%, 90% and 100% of their plafond
 void monitor_engine_process(){
-    
-
     while(1){
-        
         // Wait for an authorization request to notify
         pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
         pthread_cond_wait(&auxiliary_shm->monitor_engine_cond, &auxiliary_shm->monitor_engine_mutex);

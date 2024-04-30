@@ -48,14 +48,15 @@ int initial_plafond; // Variable to save the initial plafond
 void *send_requests(void *args);
 void *message_receiver();
 void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount);
-void signal_threads_to_exit();
 void signal_handler(int signal);
 void clean_up();
 
 
 pthread_t request_threads[3];
-pthread_mutex_t gen_mutex = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t gen_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t exit_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t exit_signal = PTHREAD_COND_INITIALIZER;
 
 pthread_t message_thread;
 int started_threads = 0; // This value has to be 4 to start the threads (3 senders + 1 message receiver)
@@ -104,9 +105,6 @@ int main(int argc, char *argv[]){
     int delta_music = atoi(argv[4]);
     int delta_social = atoi(argv[5]);
     int data_ammount = atoi(argv[6]);
-
-    char message[200];
-    sprintf(message, "MOBILE USER STARTING - USER ID: %d\n PLAFOND: %d\n MAX REQUESTS: %d\n DELTA VIDEO: %d\n DELTA MUSIC: %d\n DELTA SOCIAL: %d\n DATA AMMOUNT: %d\n", getpid(), initial_plafond, requests_left, delta_video, delta_music, delta_social, data_ammount);
     
     print_arguments(initial_plafond, requests_left, delta_video, delta_music, delta_social, data_ammount);
     printf("Waiting for the system to accept registration request...\n");
@@ -115,7 +113,7 @@ int main(int argc, char *argv[]){
     printf("DEBUG# Creating user message queue\n");
     #endif
     key_t queue_key = ftok(MESSAGE_QUEUE_KEY, 'a'); 
-    if((user_msq_id = msgget(queue_key, 0777 | IPC_CREAT)) == -1){
+    if((user_msq_id = msgget(queue_key, 0777)) == -1){
         perror("<ERROR> Could not create message queue\n");
         return 1;
     }
@@ -124,6 +122,7 @@ int main(int argc, char *argv[]){
     printf("DEBUG# Opening user pipe\n");
     #endif
     fd_user_pipe = open(USER_PIPE, O_WRONLY);
+
     if(fd_user_pipe == -1){
         perror("<ERROR> Could not open user pipe\n");
         return 1;
@@ -172,22 +171,20 @@ int main(int argc, char *argv[]){
         pthread_create(&request_threads[i], NULL, send_requests, (void*)arg);
     }
 
-    for(int i = 0; i < 3; i++){
-        #ifdef DEBUG
-        printf("DEBUG# Waiting for thread %d to exit\n", i);
-        #endif
-        pthread_join(request_threads[i], NULL);
-    }
     #ifdef DEBUG
     printf("DEBUG# Waiting for message thread to exit\n");
     #endif
     
-    pthread_join(message_thread, NULL);
+    // Wait for the exit signal
+    pthread_mutex_lock(&exit_signal_mutex);
+    while((!threads_should_exit) && (requests_left > 0)){
+            pthread_cond_wait(&exit_signal, &exit_signal_mutex);
+    }
+    threads_should_exit = 1;
+    pthread_mutex_unlock(&exit_signal_mutex);
 
-    signal_handler(SIGINT);
-
-    printf("%s", message);  
-
+    clean_up();
+    
     return 0; 
 }
 
@@ -249,69 +246,41 @@ void *send_requests(void *arg){
     // threads_should_exit does not need to be checked in mutual exclusion because reading and writing ints is an atomic operation
     while(1){
         // Check if theres a signal to exit
-        pthread_mutex_lock(&exit_signal_mutex);
-        if(threads_should_exit){
+
+        pthread_mutex_lock(&exit_signal_mutex); // Lock
+
+        if(threads_should_exit == 1){
             pthread_mutex_unlock(&exit_signal_mutex);
             break;
         }
-        pthread_mutex_unlock(&exit_signal_mutex);
 
-        // Check if there are any requests left
-        pthread_mutex_lock(&gen_mutex); // Lock
-        if(requests_left <= 0){
-            signal_threads_to_exit();
-            break;
-        }
         #ifdef DEBUG
         printf("DEBUG# There are %d requests left\n", requests_left);
         #endif
         requests_left--; 
-        pthread_mutex_unlock(&gen_mutex); // Unlock
-        
 
         #ifdef DEBUG
         printf("<%s SENDER>DEBUG# Thread sending request\n", type);
         #endif
         sprintf(message, "%d#%s#%d", getpid(), type, data_ammount);
 
-        write(fd_user_pipe, message, strlen(message) + 1);
+        write(fd_user_pipe, message, PIPE_BUFFER_SIZE);
+        
         printf("\t(>>) Sending %s!\n", message);
+        
+        //pthread_cond_signal(&exit_signal);
+        // Notify monitor to check exit condition
+        pthread_cond_signal(&exit_signal);
+
+        pthread_mutex_unlock(&exit_signal_mutex); // Unlock
+
         // Sleep for delta milliseconds
         sleep_milliseconds(delta);
-    
     }
-    // Unlock mutex
-    pthread_mutex_unlock(&gen_mutex);
-
-    //signal_threads_to_exit();
 
     free(args);
     printf("%s SENDER THREAD EXITING\n", type);
     return NULL;
-}
-
-// We need to send a message thread to exit because msgrcv is a blocking function
-void signal_threads_to_exit(){
-    pthread_mutex_lock(&exit_signal_mutex);
-    threads_should_exit = 1;
-    pthread_mutex_unlock(&exit_signal_mutex);
-    
-    #ifdef DEBUG
-    printf("DEBUG# Sending message to message queue\n");
-    #endif
-
-    QueueMessage qmsg;
-    qmsg.type = getpid();
-    strcpy(qmsg.text, EXIT_MESSAGE);
-    if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
-        perror("<ERROR> Could not send message to message queue\n");
-        threads_should_exit = 1;
-    }
-
-    char mes[PIPE_BUFFER_SIZE];
-    // This forces the user to be removed lmfao
-    sprintf(mes, "%d#SOCIAL#%d", getpid(), initial_plafond + 1);
-
 }
 
 void *message_receiver(){
@@ -340,16 +309,19 @@ void *message_receiver(){
             threads_should_exit = 1;
         }
 
-        if(is_positive_integer(qmsg.text)){
-            printf("\n\n\t!!! THE USER %d HAS SPENT %d%% OF THE PLAFOND !!!\n\n\n", getpid(), atoi(qmsg.text));
-        }
+        printf("\n\n\t!!! THE USER %d HAS SPENT %d%% OF THE PLAFOND !!!\n\n\n", getpid(), atoi(qmsg.text));
 
         if((atoi(qmsg.text) == 100) || (strcmp(qmsg.text, EXIT_MESSAGE) == 0)){
             #ifdef DEBUG
             printf("<MESSAGE THREAD>DEBUG# Received exit message\n");
             #endif
-            signal_threads_to_exit();
-            printf("\n\n\n!!! LEBRON JAAAAAAAAAAAAAAAAAAMES TWWENTTT Y ONEEEEEEEE YOU STUPEE, NO AHM NAAAAAAAGHT WAS 9 + 10 :3\n\n\n\n");
+
+            pthread_mutex_lock(&exit_signal_mutex);
+
+            threads_should_exit = 1;
+
+            pthread_cond_signal(&exit_signal); // Notify the monitor thread
+            pthread_mutex_unlock(&exit_signal_mutex);
             break;
         }    
     }
@@ -375,11 +347,28 @@ void print_arguments(int initial_plafond, int requests_left, int delta_video, in
 }
 
 void clean_up(){
-    // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
-
-
     // Send a message to the message queue to signal the message thread to exit
-    signal_threads_to_exit();
+    pthread_mutex_lock(&exit_signal_mutex);
+    threads_should_exit = 1;
+    pthread_mutex_unlock(&exit_signal_mutex);
+    
+    #ifdef DEBUG
+    printf("DEBUG# Sending message to message queue\n");
+    #endif
+
+    QueueMessage qmsg;
+    qmsg.type = getpid();
+    strcpy(qmsg.text, EXIT_MESSAGE);
+    if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+        perror("<ERROR> Could not send message to message queue\n");
+        threads_should_exit = 1;
+    }
+
+    // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
+    char mes[PIPE_BUFFER_SIZE];
+    // This forces the user to be removed lmfao
+    sprintf(mes, "%d#SOCIAL#%d", getpid(), initial_plafond + 1);
+
 
     // Wait for the threads to exit
     #ifdef DEBUG
@@ -393,17 +382,22 @@ void clean_up(){
     #ifdef DEBUG
     printf("DEBUG# Closing user pipe\n");
     #endif
-    close(fd_user_pipe);
 
-    // BE CAREFUL DELETING THE MESSAGE QUEUE, IT ALSO DELETES IT FOR THE MAIN PROCESS
+    // Close pipes
+    if(close(fd_user_pipe) == -1){
+        perror("<ERROR> Could not close user pipe\n");
+    }
+
+    // NO NEED TO REMOVE MESSAGE QUEUE
 
     #ifdef DEBUG
     printf("DEBUG# Destroying gen_mutex\n");
     #endif
     // Destroy the mutex
-    pthread_mutex_destroy(&gen_mutex);
+    pthread_mutex_destroy(&exit_signal_mutex);
 
-
+    // Destroy the cond var
+    pthread_cond_destroy(&exit_signal);
 }
 
 void signal_handler(int signal){

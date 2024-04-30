@@ -46,7 +46,7 @@ typedef struct{
     int spent_music;
     int spent_social;
     MobileUserData *users;
-} SharedMemory;
+} SharedMemory; 
 
 // MIGHT REMOVE NESTED SHARED MEMORY AND JUST HAVE AN ARRAY OF ACTIVE AUTH ENGINES AS AUX SHM
 typedef struct{

@@ -6,6 +6,7 @@
 #ifndef SYSTEM_MANAGER_STARTUP_H
 #define SYSTEM_MANAGER_STARTUP_H
 
+// --> main function in system_manager.c <--
 
 // Initialization (system_initialization.c)
 int read_config_file(char *filename);

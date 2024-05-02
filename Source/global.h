@@ -11,6 +11,8 @@
 #define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
+#define MAIN_LOCKFILE "/tmp/main_lockfile.lock"
+
 #define LOG_SEMAPHORE "log_semaphore"
 #define SHARED_MEMORY_SEMAPHORE "shared_memory_semaphore"
 #define AUXILIARY_SHM_SEMAPHORE "auxiliary_shm_semaphore"

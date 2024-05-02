@@ -384,11 +384,11 @@ void clean_up(){
         threads_should_exit = 1;
     }
 
-    // // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
-    // char mes[PIPE_BUFFER_SIZE];
-    // // This forces the user to be removed lmfao
-    // sprintf(mes, "%d#SOCIAL#%d", getpid(), initial_plafond + 1);
-
+    // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
+    char kill_message[PIPE_BUFFER_SIZE];
+    // This forces the user to be removed lmfao
+    sprintf(kill_message, "%d#KILL", getpid(), initial_plafond + 1);
+    write(fd_user_pipe, kill_message, PIPE_BUFFER_SIZE);
 
     // Wait for the threads to exit
     #ifdef DEBUG

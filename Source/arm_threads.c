@@ -169,13 +169,6 @@ void* receiver_thread(){
             #ifdef DEBUG
             printf("<RECEIVER>DEBUG# Received message from USER_PIPE: %s\n", buffer);
             #endif
-
-            // close(fd_user_pipe);
-            // if((fd_user_pipe = open(USER_PIPE, O_RDWR)) == -1){
-            //     write_to_log("<ERROR OPENING USER_PIPE>");
-            //     signal_handler(SIGINT);
-            // }
-
         }
         // Check BACK_PIPE
         if(FD_ISSET(fd_back_pipe, &read_set)){
@@ -186,12 +179,6 @@ void* receiver_thread(){
             #ifdef DEBUG
             printf("<RECEIVER>DEBUG# Received message from BACK_PIPE: %s\n", buffer);
             #endif
-
-            // close(fd_back_pipe);
-            // if((fd_back_pipe = open(BACK_PIPE, O_RDWR)) == -1){
-            //     write_to_log("<ERROR OPENING USER_PIPE>");
-            //     signal_handler(SIGINT);
-            // }
         }
 
         // Parse and send the message to one of the queues

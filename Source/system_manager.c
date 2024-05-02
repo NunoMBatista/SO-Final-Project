@@ -4,12 +4,12 @@
     Miguel Castela uc2022212972
 */
 #include <sys/shm.h>
-#include <semaphore.h> // POSIX 
-#include <fcntl.h> // O_CREAT, O_EXCL
-#include <unistd.h> // fork
+#include <semaphore.h> 
+#include <fcntl.h>
+#include <unistd.h> 
 #include <stdio.h>
-#include <stdlib.h> // exit
-#include <sys/wait.h> // wait
+#include <stdlib.h> 
+#include <sys/wait.h> 
 #include <sys/types.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -68,13 +68,16 @@ int main(int argc, char *argv[]){
     printf("<SYS MAN> Is process number %d\n", getpid());
     #endif
 
-    // Check if another instance of the program is running by checking if the semaphore already exists
-    // PERGUNTAR SE VALE A PENA
+    int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
+    if (lockfile == -1){
+        perror("open");
+        return 1;
+    }
 
-    // if((sem_open(LOG_SEMAPHORE, O_CREAT | O_EXCL, 0666, 1) == SEM_FAILED) && (errno == EEXIST)){
-    //     printf("!!! ANOTHER INSTANCE OF THE PROGRAM IS ALREADY RUNNING !!!\n");
-    //     return 1;
-    // }
+    if(lockf(lockfile, F_TLOCK, 0) == -1){
+        printf("!!! ANOTHER INSTANCE OF THE PROGRAM IS ALREADY RUNNING !!!\n");
+        return 1;
+    }
 
     // Check correct number of arguments
     if(argc != 2){

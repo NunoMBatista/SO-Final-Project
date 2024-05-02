@@ -46,6 +46,19 @@ int main(){
     printf("DEBUG# Redirecting SIGINT to signal handler\n");
     #endif
     signal(SIGINT, signal_handler);
+    
+    // Create a lockfile to prevent multiple backoffice users
+    int lockfile = open(BACKOFFICE_LOCKFILE, O_RDWR | O_CREAT, 0640); 
+    if(lockfile == -1){
+        perror("<ERROR> Could not create lockfile\n");
+        return 1;
+    }
+    // Try to lock the file
+    if(lockf(lockfile, F_TLOCK, 0) == -1){
+        printf("!!! THERE CAN ONLY BE ONE BACKOFFICE USER !!!\n");
+        return 1;
+    }    
+    
     char message[100];
     sprintf(message, "BACKOFFICE USER STARTING - PROCESS ID: %d", getpid());
     printf("%s\n", message);

@@ -12,6 +12,7 @@
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
 #define MAIN_LOCKFILE "/tmp/main_lockfile.lock"
+#define BACKOFFICE_LOCKFILE "/tmp/backoffice_lockfile.lock"
 
 #define LOG_SEMAPHORE "log_semaphore"
 #define SHARED_MEMORY_SEMAPHORE "shared_memory_semaphore"

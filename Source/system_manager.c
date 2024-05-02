@@ -68,7 +68,7 @@ int main(int argc, char *argv[]){
     printf("<SYS MAN> Is process number %d\n", getpid());
     #endif
 
-    // Create a lockfile to prevent multiple instances of the program
+    // Create a lockfile to prevent multiple instances of the program with only read permissions for the group
     int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
     if (lockfile == -1){
         perror("open");

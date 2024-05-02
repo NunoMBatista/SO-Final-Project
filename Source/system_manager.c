@@ -68,12 +68,13 @@ int main(int argc, char *argv[]){
     printf("<SYS MAN> Is process number %d\n", getpid());
     #endif
 
+    // Create a lockfile to prevent multiple instances of the program
     int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
     if (lockfile == -1){
         perror("open");
         return 1;
     }
-
+    // Try to lock the file
     if(lockf(lockfile, F_TLOCK, 0) == -1){
         printf("!!! ANOTHER INSTANCE OF THE PROGRAM IS ALREADY RUNNING !!!\n");
         return 1;

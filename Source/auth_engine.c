@@ -57,16 +57,15 @@ int auth_engine_process(int id){
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is now processing a request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
-    
+
         #ifdef SLOWMOTION
         sleep_milliseconds(config->AUTH_PROC_TIME * SLOWMOTION / 10);
         #endif
-        sleep_milliseconds(config->AUTH_PROC_TIME);
+        sleep_milliseconds(config->AUTH_PROC_TIME); // Simulate processing time
 
         char log_message[PIPE_BUFFER_SIZE + 500]; // Write to the log
         char log_message_type[PIPE_BUFFER_SIZE]; // Used to write to the log the type of request processed
         char log_process_feedback[PIPE_BUFFER_SIZE]; // Used to write to the log the result of the request processing
-       
        
         int return_code; // Identifies the return codes from functions
         char response[PIPE_BUFFER_SIZE]; // Send back to the user through the message queue
@@ -74,9 +73,12 @@ int auth_engine_process(int id){
         char type = request.request_type; // Make the code more readable
  
         #ifdef DEBUG
-        printf("<AE%d>DEBUG# Waiting for shared memory semaphore\n", id);
+        printf("\033[33m<AE%d>DEBUG# Waiting for shared memory semaphore\n\033[0m", id);
         #endif
         sem_wait(shared_memory_sem); // Lock shared memory
+        #ifdef DEBUG
+        printf("\033[31m<AE%d>DEBUG# Locked shared memory\n\033[0m", id);
+        #endif
 
         int user_index = get_user_index(request.user_id);
         
@@ -160,17 +162,17 @@ int auth_engine_process(int id){
                     break;
             }
 
-
-            sem_post(shared_memory_sem); // Unlock shared memory 
             // NOTIFY MONITOR ENGINE
             pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
             pthread_cond_signal(&auxiliary_shm->monitor_engine_cond);
             pthread_mutex_unlock(&auxiliary_shm->monitor_engine_mutex);
-
         }
+    
+        #ifdef DEBUG
+        printf("\033[32m<AE%d>DEBUG# Unlocking shared memory\n\033[0m", id);
+        #endif
         sem_post(shared_memory_sem); // Unlock shared memory 
-
-        
+    
         sprintf(log_message, "AUTHORIZATION_ENGINE %d: %s -> %s", id, log_message_type, log_process_feedback);
         write_to_log(log_message);
 
@@ -194,6 +196,7 @@ int auth_engine_process(int id){
             #endif
         }
 
+
         // Mark the auth engine as available
         sem_wait(aux_shm_sem);
         auxiliary_shm->active_auth_engines[id] = 0;
@@ -205,7 +208,6 @@ int auth_engine_process(int id){
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine finished processing request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\nIt's available again\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
-
     }
 
     return 0;
@@ -240,6 +242,7 @@ int add_mobile_user(int user_id, int plafond){
             shared_memory->users[i].user_id = user_id; // Set user id
             shared_memory->users[i].initial_plafond = plafond; // Set initial plafond
             shared_memory->users[i].spent_plafond = 0; // Set spent plafond
+            shared_memory->users[i].already_notified = 0; // Set already notified to 0
             break;
         }
     }

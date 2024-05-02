@@ -63,6 +63,7 @@
     "shm.h": "c",
     "semaphore.h": "c",
     "random": "c",
-    "system_functions.h": "c"
+    "system_functions.h": "c",
+    "queue.h": "c"
   }
 }

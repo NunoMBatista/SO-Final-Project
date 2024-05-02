@@ -41,6 +41,13 @@ typedef struct{
     pid_t user_id;
     int initial_plafond;
     int spent_plafond;
+    /*
+        The already_notified variable starts at 0, when notified for 80% it becomes 80,
+        when notified for 90% it becomes 90 and when notified for 100% it becomes 100.
+
+        A user is only notified if the already_notified variable is less than the notification value
+    */
+    int already_notified; 
 } MobileUserData;
 
 typedef struct{

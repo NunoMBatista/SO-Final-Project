@@ -167,7 +167,9 @@ void* receiver_thread(){
             buffer[read_bytes - 1] = '\0';
 
             #ifdef DEBUG
+            printf("\033[32m]");
             printf("<RECEIVER>DEBUG# Received message from USER_PIPE: %s\n", buffer);
+            printf("\033[0m");
             #endif
         }
         // Check BACK_PIPE
@@ -267,10 +269,11 @@ void kill_auth_engine(int signal){
 // Sends the messages to the queues, called by the receiver thread
 // Also, deploys the extra auth engine if any of the queues is full
 void parse_and_send(char *message){
-    // JUST SEND TO VIDEO FOR NOW, IMPLEMENT PARSING LATTER
-
     // Parse the message and send it to the correct queue
     /*
+        REMOVE USER:
+            PID#KILL - Remove user from the system
+
         VIDEO QUEUE: 
             PID#VIDEO#INT - Video request
    
@@ -279,7 +282,7 @@ void parse_and_send(char *message){
             PID#[SOCIAL|MUSIC]#INT - Social or music request
             1#[data_stats|reset] - Backoffice request
 
-        Therefore, we only need to check the first character of the second argument
+        Therefore, we only need to check the first character of the second argument to know where to send the message
     */
 
     // Copying thee message is necessary as tokenizing it modifies the initial string

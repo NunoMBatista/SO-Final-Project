@@ -164,8 +164,10 @@ int main(int argc, char *argv[]){
 
     // Create a thread to continuously receive messages from the message queue
     pthread_create(&message_thread, NULL, message_receiver, NULL);
-
+    
+    printf("\033[32m"); // Green
     printf("\n\n!!! USER ACCEPTED AND MESSAGE THREAD ACTIVE, START SENDING AUTH REQUESTS!!!\n\n");
+    printf("\033[0m"); // Reset
 
     char *types[3] = {"VIDEO", "MUSIC", "SOCIAL"};
     int deltas[3] = {delta_video, delta_music, delta_social};
@@ -186,14 +188,11 @@ int main(int argc, char *argv[]){
     pthread_mutex_lock(&exit_signal_mutex);
     while((!threads_should_exit) && (requests_left > 0)){
         pthread_cond_signal(&exit_signal);
-        printf("\nLEBRON LOOP\n");
         pthread_cond_wait(&exit_signal, &exit_signal_mutex);
     }
     threads_should_exit = 1;
     pthread_mutex_unlock(&exit_signal_mutex);
     
-    printf("\n\nLEBRON FREE\n\n");
-
     clean_up(); 
     return 0; 
 }
@@ -259,7 +258,9 @@ void *send_requests(void *arg){
 
         pthread_mutex_lock(&exit_signal_mutex); // Lock
         
+        #ifdef DEBUG
         printf("<%s SENDER>DEBUG# THREADS SHOULD EXIT = %d\n", type, threads_should_exit);
+        #endif
 
         if(threads_should_exit == 1){
             pthread_mutex_unlock(&exit_signal_mutex);
@@ -277,7 +278,11 @@ void *send_requests(void *arg){
         #endif
         sprintf(message, "%d#%s#%d", getpid(), type, data_ammount);
 
+        printf("\033[34m"); // Set the text color to blue
         printf("\t(>>) Sending %s!\n", message);
+        printf("\033[0m"); // Reset the text color to default
+
+
         write(fd_user_pipe, message, PIPE_BUFFER_SIZE);
         
         // Notify monitor to check exit condition
@@ -289,7 +294,9 @@ void *send_requests(void *arg){
     }
 
     free(args);
-    printf("%s SENDER THREAD EXITING\n", type);
+    #ifdef DEBUG
+    printf("DEBUG# %s SENDER THREAD EXITING\n", type);
+    #endif
     return NULL;
 }
 
@@ -328,7 +335,19 @@ void *message_receiver(){
 
         // If the message is a number
         if(atoi(qmsg.text) != 0){
+            switch(atoi(qmsg.text)){
+                case 100:
+                    printf("\033[31m"); // Red
+                    break;
+                case 90:
+                    printf("\033[33m"); // Yellow
+                    break;
+                case 80:
+                    printf("\033[35m"); // Magenta
+                    break;
+            }
             printf("\n\n\t!!! THE USER %d HAS SPENT %d%% OF THE PLAFOND !!!\n\n\n", getpid(), atoi(qmsg.text));
+            printf("\033[0m"); // Reset 
         }
 
         if((atoi(qmsg.text) == 100) || (strcmp(qmsg.text, EXIT_MESSAGE) == 0)){
@@ -346,13 +365,17 @@ void *message_receiver(){
 
     pthread_cond_signal(&exit_signal); // Notify the monitor thread
     pthread_mutex_unlock(&exit_signal_mutex);
-
-    printf("MESSAGE THREAD EXITING\n");
+    
+    #ifdef DEBUG
+    printf("DEBUG# MESSAGE THREAD EXITING\n");
+    #endif
 
     return NULL;
 }
 
 void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount) {
+    printf("\033[32m"); // Set the text color to green
+
     printf("\n");
     printf("************************************\n");
     printf("* Mobile User Data                 *\n");
@@ -365,6 +388,8 @@ void print_arguments(int initial_plafond, int requests_left, int delta_video, in
     printf("* Data Amount:     %15d *\n", data_ammount);
     printf("************************************\n");
     printf("\n");
+
+    printf("\033[0m"); // Reset the text color to default
 }
 
 void clean_up(){
@@ -387,7 +412,7 @@ void clean_up(){
     // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
     char kill_message[PIPE_BUFFER_SIZE];
     // This forces the user to be removed lmfao
-    sprintf(kill_message, "%d#KILL", getpid(), initial_plafond + 1);
+    sprintf(kill_message, "%d#KILL", getpid());
     write(fd_user_pipe, kill_message, PIPE_BUFFER_SIZE);
 
     // Wait for the threads to exit

@@ -26,6 +26,7 @@
 #include "global.h"
 
 #define BACKOFFICE_SEMAPHORE "backoffice_semaphore"
+#define MAIN_STRING "\n\n\t-> Welcome to the backoffice user interface <-\n\n\n\t -> data_stats - Gets consumption statistics\n\t -> reset - Resets the statistics\n\t -> exit - Exits the backoffice user interface\n\n\n"
 
 /*
     Execution instructions:
@@ -39,10 +40,12 @@ void send_message(char *message);
 void *receiver();
 void print_statistics(char *message);
 
+
 int fd_back_pipe;
 int back_msq_id;
 
 pthread_t receiver_thread;
+
 
 int main(){
     // Check if the backoffice user can create the main lockfile
@@ -68,6 +71,10 @@ int main(){
         printf("!!! THERE CAN ONLY BE ONE BACKOFFICE USER !!!\n");
         return 1;
     }    
+
+    // Clear the screen
+    printf("\033[H\033[J");
+
 
     #ifdef DEBUG
     printf("DEBUG# Backoffice user - PROCESS ID: %d\n", getpid());
@@ -96,12 +103,14 @@ int main(){
         return 1;
     }
     
-    printf("\t-> Welcome to the backoffice user interface <-\n");
-    printf("\n\n\t -> data_stats - Gets consumption statistics\n\t -> reset - Resets the statistics\n\t -> exit - Exits the backoffice user interface\n\n\n");
     // Wait for a command 
     char command[100];
     while(1){
+        
+        printf(MAIN_STRING);
+        
         printf("\n$ ");
+
 
         if(fgets(command, 100, stdin) == NULL){
             perror("<ERROR> Could not read command\n");
@@ -113,7 +122,11 @@ int main(){
             command[strlen(command) - 1] = '\0';
         }
         
-        interpret_command(command);
+
+        // clear the screen
+        printf("\033[H\033[J");
+
+        interpret_command(command);        
     }
 }
 
@@ -154,7 +167,12 @@ void print_statistics(char *message){
     int spent_video, spent_music, spent_social;
     int reqs_video, reqs_music, reqs_social;
 
-    printf("Received message: %s\n", message);
+    // clear the screen
+    printf("\033[H\033[J");
+
+    printf("\033[1;36m+---------------------------------------------+\n");
+    printf("| RECEIVED CURRENT STATE OF THE SHARED MEMORY |\n");
+    printf("+---------------------------------------------+\n\n");
 
     // Token 1 is the shared memory type key
     char *token = strtok(message, "#");
@@ -183,12 +201,29 @@ void print_statistics(char *message){
     token = strtok(NULL, "#");
     reqs_social = atoi(token);
 
-
     // Print everything
-    printf("Video:\n\tData spent: %d\n\tRequests: %d\n", spent_video, reqs_video);
-    printf("Music:\n\tData spent: %d\n\tRequests: %d\n", spent_music, reqs_music);
-    printf("Social:\n\tData spent: %d\n\tRequests: %d\n\n", spent_social, reqs_social);
-
+    printf("\t    \033[1;33m+---------------------+\n");
+    printf("\t    |        Video:       |\n");
+    printf("\t    +---------------------+\n");
+    printf("\t    | Data spent: %7d |\n", spent_video);
+    printf("\t    | Requests:   %7d |\n", reqs_video);
+    printf("\t    +---------------------+\n\n");
+  
+    printf("\t    \033[1;33m+---------------------+\n");
+    printf("\t    |        Music:       |\n");
+    printf("\t    +---------------------+\n");
+    printf("\t    | Data spent: %7d |\n", spent_music);
+    printf("\t    | Requests:   %7d |\n", reqs_music);
+    printf("\t    +---------------------+\n\n");
+  
+    printf("\t    \033[1;33m+---------------------+\n");
+    printf("\t    |        Social:      |\n");
+    printf("\t    +---------------------+\n");
+    printf("\t    | Data spent: %7d |\n", spent_social);
+    printf("\t    | Requests:   %7d |\n", reqs_social);
+    printf("\t    +---------------------+\n\n");
+    
+    printf("\n\033[1;34m[ENTER] to continue\n\033[0m");   
 }
 
 void interpret_command(char *command){
@@ -196,7 +231,7 @@ void interpret_command(char *command){
 
     if((strcmp(command, "data_stats") == 0) || strcmp(command, "reset") == 0){
         strcat(message, command);
-        printf("about to send <%s>\n", message);
+        printf("\033[32mSending request... \t<%s>\033[0m", message);
         send_message(message);
         return;
     }
@@ -206,8 +241,11 @@ void interpret_command(char *command){
         clean_up();
         exit(0);
     }
+    else if(strcmp(command, "") == 0){
+        return;
+    }
     else{
-        printf("Invalid command\n");
+        printf("\033[31mInvalid command\033[0m");
     }
 
 }
@@ -217,7 +255,6 @@ void send_message(char *message){
         perror("<ERROR> Could not write to back pipe\n");
         return;
     }
-    printf("Message sent\n");
 }
     
 void signal_handler(int signal){
@@ -229,5 +266,4 @@ void signal_handler(int signal){
 }
 
 void clean_up(){
-
 }               

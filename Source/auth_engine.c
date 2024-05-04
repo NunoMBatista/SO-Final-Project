@@ -166,10 +166,9 @@ int auth_engine_process(int id){
 
         }
         
-        // If it's a backoffice request
+        // If it's a backoffice request to get the shared memory stats
         if(type == 'D'){
             sprintf(log_message_type, "BACKOFFICE DATA_STATS REQUEST");
-            printf("\n\n\n\n\n RECEIVED BACKOFFICE DATA_STATS \n\n\n\n");
 
             response_applicable = 1;
             /*
@@ -180,6 +179,20 @@ int auth_engine_process(int id){
             request.user_id = 1; // The backoffice user id
 
             sprintf(log_process_feedback, "BACKOFFICE DATA_STATS REQUEST PROCESSED");
+        }
+
+        // If it's a backoffice request reset the shared memory stats
+        if(type == 'R'){
+            sprintf(log_message_type, "BACKOFFICE RESET REQUEST");
+
+            shared_memory->spent_video = 0;
+            shared_memory->spent_music = 0;
+            shared_memory->spent_social = 0;
+            shared_memory->reqs_video = 0;
+            shared_memory->reqs_music = 0;
+            shared_memory->reqs_social = 0;
+
+            sprintf(log_process_feedback, "BACKOFFICE RESET REQUEST PROCESSED");            
         }
 
         #ifdef SHARED_MEMORY_DISPLAY

@@ -40,6 +40,7 @@ void send_message(char *message);
 void *receiver();
 void print_statistics(char *message);
 
+int stop_receiver = 0; // Flag to stop the receiver thread
 
 int fd_back_pipe;
 int back_msq_id;
@@ -144,7 +145,7 @@ void *receiver(){
     char message_copy[PIPE_BUFFER_SIZE];
     QueueMessage qmsg;
 
-    while(1){
+    while(!stop_receiver){
         if(msgrcv(back_msq_id, &qmsg, sizeof(QueueMessage), 1, 0) == -1){
             perror("<ERROR> Could not receive message\n");
             return NULL;
@@ -157,10 +158,9 @@ void *receiver(){
         if(strcmp(token, "SHM") == 0){
             print_statistics(qmsg.text);
         }
-        
-
     }
 
+    return NULL;
 }
 
 void print_statistics(char *message){
@@ -266,4 +266,22 @@ void signal_handler(int signal){
 }
 
 void clean_up(){
+
+    // We don't need a mutex to access the flag because writing to a int is atomic
+    stop_receiver = 1;
+
+    QueueMessage qmsg;
+    qmsg.type = 1;
+    strcpy(qmsg.text, "EXIT");
+
+    // Send dummy message to unblock the receiver
+    if(msgsnd(back_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+        perror("<ERROR> Could not send message to message queue\n");
+    }
+
+
+    pthread_join(receiver_thread, NULL);
+    close(fd_back_pipe);
+
+    unlink(BACKOFFICE_LOCKFILE);
 }               

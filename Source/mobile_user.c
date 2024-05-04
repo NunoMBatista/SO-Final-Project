@@ -476,7 +476,5 @@ void signal_handler(int signal){
 
         pthread_cond_signal(&exit_signal);
         pthread_mutex_unlock(&exit_signal_mutex);
-
-
     }
 }

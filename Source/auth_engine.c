@@ -127,7 +127,7 @@ int auth_engine_process(int id){
         if((type == 'V') || (type == 'M') || (type == 'S')){
             int add_stats = request.data_amount; // The amount of data to add to the user stats
             
-            return_code = remove_from_user(request.user_id, add_stats);
+            return_code = remove_from_user(user_index, add_stats);
 
             // If the user had enough data and still has some left
             if(return_code == 1){
@@ -162,23 +162,25 @@ int auth_engine_process(int id){
                     break;
             }
 
-            // NOTIFY MONITOR ENGINE
-            pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
-            pthread_cond_signal(&auxiliary_shm->monitor_engine_cond);
-            pthread_mutex_unlock(&auxiliary_shm->monitor_engine_mutex);
         }
     
+        #ifdef SHARED_MEMORY_DISPLAY
+        print_shared_memory();
+        #endif
+
         #ifdef DEBUG
         printf("\033[32m<AE%d>DEBUG# Unlocking shared memory\n\033[0m", id);
         #endif
         sem_post(shared_memory_sem); // Unlock shared memory 
     
+        // NOTIFY MONITOR ENGINE
+        pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
+        pthread_cond_signal(&auxiliary_shm->monitor_engine_cond);
+        pthread_mutex_unlock(&auxiliary_shm->monitor_engine_mutex);
+        
         sprintf(log_message, "AUTHORIZATION_ENGINE %d: %s -> %s", id, log_message_type, log_process_feedback);
         write_to_log(log_message);
 
-        #ifdef SHARED_MEMORY_DISPLAY
-        print_shared_memory();
-        #endif
 
         if(response_applicable){
             #ifdef DEBUG
@@ -233,7 +235,7 @@ int add_mobile_user(int user_id, int plafond){
     for(int i = 0; i <= config->MOBILE_USERS; i++){
         if(shared_memory->users[i].isActive == 0){
             // Check if there's a user with the same id already in the shared memory
-            if(shared_memory->users[i].user_id == user_id){ 
+            if((shared_memory->users[i].user_id == user_id) && (shared_memory->users[i].isActive == 1)){ 
                 write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
                 return 2;
             }
@@ -276,34 +278,30 @@ int get_user_index(int user_id){
             return i;
         }
     }
-    return -1;
+    return -1; // User not found
 }
 
 // Removes an ammount from the user's plafond, called by the auth engines
-int remove_from_user(int user_id, int amount){
+int remove_from_user(int user_index, int amount){
     /*
         Returns:
             1 - Success and remaining > 0
             2 - Sucess and remaining = 0
             -1 - User does not have enough plafond
     */
-
-    // Returns the ammount taken from the user
-    for(int i = 0; i < config->MOBILE_USERS; i++){
-        if(shared_memory->users[i].user_id == user_id){
-            shared_memory->users[i].spent_plafond += amount;
-            int remaining = shared_memory->users[i].initial_plafond - shared_memory->users[i].spent_plafond;
-            if(remaining == 0){
-                return 2;
-            }
-            if(remaining < 0){             
-                shared_memory->users[i].spent_plafond = shared_memory->users[i].initial_plafond; // Do not exceede the limit   
-                return -1;
-            }
-            if(remaining > 0){
-                return 1;
-            }
+    if(shared_memory->users[user_index].isActive){
+        shared_memory->users[user_index].spent_plafond += amount;
+        int remaining = shared_memory->users[user_index].initial_plafond - shared_memory->users[user_index].spent_plafond;
+        if(remaining == 0){
+            return 2;
         }
-    }       
+        if(remaining < 0){             
+            shared_memory->users[user_index].spent_plafond = shared_memory->users[user_index].initial_plafond; // Do not exceede the limit   
+            return -1;
+        }
+        if(remaining > 0){
+            return 1;
+        }
+    }
     return -2; // User not found
 }

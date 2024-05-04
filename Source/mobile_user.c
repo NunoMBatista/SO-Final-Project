@@ -71,6 +71,18 @@ int user_msq_id;
 
 
 int main(int argc, char *argv[]){
+    // Check if the mobile user can create the main lockfile
+    int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
+    if (lockfile == -1){
+        perror("open");
+        return 1;
+    }
+    // If the lockfile was successfully locked, the system is not online
+    if(lockf(lockfile, F_TLOCK, 0) == 0){ // The lock was successfully apllied
+        printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+        return 1;
+    }
+
     #ifdef DEBUG
     printf("DEBUG# Mobile user starting - USER ID: %d\n", getpid());
     printf("DEBUG# Redirecting SIGINT to signal handler\n");

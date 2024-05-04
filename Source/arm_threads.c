@@ -89,6 +89,8 @@ void* sender_thread(){
             printf("<SENDER>DEBUG# Engines semaphore value: %d\n", sem_value);
         }
         #endif
+
+        
         // Wait until an auth engine is available
         sem_wait(engines_sem);
         #ifdef DEBUG
@@ -122,6 +124,8 @@ void* sender_thread(){
         printf("<SENDER>DEBUG# Queue status:\n\tVideo: %d/%d\n\tOther: %d/%d\n\tExtra Engine: %d\n", video_queue->num_elements, video_queue->max_elements, other_queue->num_elements, other_queue->max_elements, extra_auth_engine); 
         #endif
 
+
+        pthread_mutex_lock(&queues_mutex); // Check queues in mutual exclusion
         // If both queues reach 50% capacity, the extra auth engine is deactivated
         if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
             #ifdef DEBUG
@@ -130,7 +134,9 @@ void* sender_thread(){
            
             kill(extra_auth_pid, SIGTERM);
             extra_auth_engine = 0;
+            //sem_wait(engines_sem); // Remove the extra engine from the semaphore
         }
+        pthread_mutex_unlock(&queues_mutex);
     }
     return NULL;
 }
@@ -185,8 +191,6 @@ void* receiver_thread(){
 
         // Parse and send the message to one of the queues
         parse_and_send(buffer);
-
-
 
         #ifdef DEBUG    
         printf("<RECEIVER>DEBUG# Queue status:\n\tVideo: %d/%d\n\tOther: %d/%d\n\tExtra Engine: %d\n", video_queue->num_elements, video_queue->max_elements, other_queue->num_elements, other_queue->max_elements, extra_auth_engine); 
@@ -265,7 +269,6 @@ void kill_auth_engine(int signal){
     }
 }
 
-
 // Sends the messages to the queues, called by the receiver thread
 // Also, deploys the extra auth engine if any of the queues is full
 void parse_and_send(char *message){
@@ -321,6 +324,7 @@ void parse_and_send(char *message){
             request.request_type = 'E';
         }
     }
+    // If it's a user request
     else{
         request.user_id = atoi(token);
         token = strtok(NULL, "#");
@@ -328,8 +332,35 @@ void parse_and_send(char *message){
             write_to_log("<ERROR PARSING MESSAGE>");
             return;
         }
+
+        // It's a kill message, do not send to any queue, just remove the user from the system
+        if(token[0] == 'K'){
+            printf("\n\n\n SHOULD REMOVE USER %d\n\n\n", request.user_id);
+            sem_wait(shared_memory_sem); // Lock shared memory to remove user in mutual exclusion
+            #ifdef DEBUG
+            printf("<RECEIVER>DEBUG# Locked shared memory to remove user %d\n", request.user_id);
+            #endif
+
+            int user_index = get_user_index(request.user_id);
+            if(user_index == -1){
+                write_to_log("AUTHORIZATION REQUEST MANAGER: USER IS ALREADY OUT OF THE SYSTEM");
+            }
+            else{
+                shared_memory->users[user_index].isActive = 0;
+            }
+
+            // There's no need to send a notification through the message queue, the mobile_user process is already being terminated
+
+            #ifdef DEBUG
+            printf("<RECEIVER>DEBUG# Removed user %d, unlocking shared memory\n", request.user_id);
+            #endif
+            sem_post(shared_memory_sem); // Unlock shared memory
+
+            return; // Do not send to any queue
+        }
+
         // If it's a data request, there's another argument
-        if(token[0] == 'V' || token[0] == 'M' || token[0] == 'S'){
+        else if(token[0] == 'V' || token[0] == 'M' || token[0] == 'S'){
             request.request_type = token[0];
             token = strtok(NULL, "#");
             if(token == NULL){
@@ -339,7 +370,8 @@ void parse_and_send(char *message){
             request.data_amount = atoi(token);
         }
         // If it's an initial request, there are only 2 arguments
-        else{
+        else if(token[0] >= '0' && token[0] <= '9'){
+            printf("\n\n\n%s IS AN INITIAL MESSAGE\n\n\n", message_copy);
             request.request_type = 'I';
             request.initial_plafond = atoi(token);
         }

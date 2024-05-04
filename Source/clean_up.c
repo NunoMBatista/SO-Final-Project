@@ -32,7 +32,7 @@
 /*
     To implement:
 
-    GEN - Might need stdout semaphore
+    GEN - Might need stdout semaphore (the log_sem is the only one actually needed, we can add a color parameter to write_to_log to differentiate between the different processes, use enums)
 
     AE - Get stats
     AE - Reset stats

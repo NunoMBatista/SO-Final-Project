@@ -38,6 +38,7 @@ void monitor_engine_process(){
         // Wait for an authorization request to notify
         pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
         pthread_cond_wait(&auxiliary_shm->monitor_engine_cond, &auxiliary_shm->monitor_engine_mutex);
+        
         #ifdef DEBUG
         printf("<ME>DEBUG# Received signal to check users\n");
         printf("\033[33m<ME>DEBUG# Waiting for shared memory semaphore\033[0m\n");
@@ -50,17 +51,28 @@ void monitor_engine_process(){
         printf("\033[31m<ME>DEBUG# Locked shared memory\n\033[0m");
         #endif
 
+        
         for(int i = 0; i < config->MOBILE_USERS; i++){
             // Be careful: modifying current_user does not modify the shared memory
             MobileUserData current_user = shared_memory->users[i];
-            printf("\n\n\n\nI'M CHECKING USER %d WITH ACTIVE VALUE %d\n\n\n\n", i, current_user.isActive);
 
             
             if(current_user.isActive){
                 int total_spent = current_user.spent_plafond;
                 int max_plafond = current_user.initial_plafond; 
 
-                double percentage_spent = (double) ((total_spent * 100) / max_plafond);                
+
+                double percentage_spent;
+
+                if(max_plafond != 0){
+                    percentage_spent = ((double)total_spent / (double)max_plafond) * 100;
+                }
+                else{
+                    percentage_spent = 100;
+                }              
+
+
+
                 int percentage_notification;
                 #ifdef DEBUG
                 printf("<ME>DEBUG# User %d has spent %.2f\n", current_user.user_id, percentage_spent);
@@ -69,10 +81,8 @@ void monitor_engine_process(){
                 if(percentage_spent < 80){
                     break;
                 }
-
+                
                 if(percentage_spent >= 100){
-                    // Deactivate user
-                    deactivate_user(current_user.user_id, i);
                     percentage_notification = 100;
                 }
                 else if(percentage_spent >= 90){
@@ -93,15 +103,21 @@ void monitor_engine_process(){
                     // Make sure the user is not notified again
                     shared_memory->users[i].already_notified = percentage_notification;
                 }   
+                
+                if(percentage_spent >= 100){
+                    // Deactivate user
+                    deactivate_user(current_user.user_id, i);
+                }
             }
 
-            printf("\n\n\n\nI'M DONE CHECKING USER %d\n\n\n\n", i);
         }
-    
+        
+
         #ifdef DEBUG
         printf("<ME>DEBUG# Finished checking users\n");
         printf("\033[32m<ME>DEBUG# Unlocking shared memory\n\033[0m");
         #endif
+
 
         sem_post(shared_memory_sem);
 

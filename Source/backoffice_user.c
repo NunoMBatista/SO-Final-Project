@@ -20,7 +20,8 @@
 #include <sys/stat.h>
 #include <sys/select.h>
 #include <sys/time.h>
-
+#include <sys/msg.h>
+#include <sys/ipc.h>
 
 #include "global.h"
 
@@ -31,25 +32,33 @@
     ./backoffice_user
 */
 
-sem_t *backoffice_semaphore;
-
 void signal_handler(int signal);
 void clean_up();
 void interpret_command(char *command);
 void send_message(char *message);
-int check_other_backoffice_users(); // PERGUNTAR AO PROFESSOR SE VALE A PENA
+void *receiver();
+void print_statistics(char *message);
 
 int fd_back_pipe;
+int back_msq_id;
+
+pthread_t receiver_thread;
 
 int main(){
-    #ifdef DEBUG
-    printf("DEBUG# Backoffice user - PROCESS ID: %d\n", getpid());
-    printf("DEBUG# Redirecting SIGINT to signal handler\n");
-    #endif
-    signal(SIGINT, signal_handler);
-    
+    // Check if the backoffice user can create the main lockfile
+    int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
+    if (lockfile == -1){
+        perror("open");
+        return 1;
+    }
+    // If the lockfile was successfully locked, the system is not online
+    if(lockf(lockfile, F_TLOCK, 0) == 0){ // The lock was successfully apllied
+        printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+        return 1;
+    }
+
     // Create a lockfile to prevent multiple backoffice users
-    int lockfile = open(BACKOFFICE_LOCKFILE, O_RDWR | O_CREAT, 0640); 
+    lockfile = open(BACKOFFICE_LOCKFILE, O_RDWR | O_CREAT, 0640); 
     if(lockfile == -1){
         perror("<ERROR> Could not create lockfile\n");
         return 1;
@@ -59,26 +68,23 @@ int main(){
         printf("!!! THERE CAN ONLY BE ONE BACKOFFICE USER !!!\n");
         return 1;
     }    
+
+    #ifdef DEBUG
+    printf("DEBUG# Backoffice user - PROCESS ID: %d\n", getpid());
+    printf("DEBUG# Redirecting SIGINT to signal handler\n");
+    #endif
+    signal(SIGINT, signal_handler);
     
     char message[100];
     sprintf(message, "BACKOFFICE USER STARTING - PROCESS ID: %d", getpid());
     printf("%s\n", message);
 
-    // #ifdef DEBUG
-    // printf("DEBUG# Checking if another backoffice user is running\n");
-    // #endif
-    // if(check_other_backoffice_users() == 1){
-    //     printf("<ERROR> Another backoffice user is already running\n");
-    //     return 1;
-    // }
-
     #ifdef DEBUG
-    printf("DEBUG# Trying to open backoffice_semaphore\n");
+    printf("DEBUG# Creating receiver thread");
     #endif
-    sem_unlink(BACKOFFICE_SEMAPHORE);
-    sem_close(backoffice_semaphore);
-    if((backoffice_semaphore = sem_open(BACKOFFICE_SEMAPHORE, O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED){
-        perror("<ERROR> Could not create semaphore\n");
+    // Create a thread to receive messages from the system
+    if(pthread_create(&receiver_thread, NULL, receiver, NULL) != 0){
+        perror("<ERROR> Could not create receiver thread\n");
         return 1;
     }
 
@@ -111,6 +117,80 @@ int main(){
     }
 }
 
+void *receiver(){
+    key_t queue_key = ftok(MESSAGE_QUEUE_KEY, 'a');
+    if((back_msq_id = msgget(queue_key, 0777)) == -1){
+        perror("<ERROR> Could not get message queue\n");
+        return NULL;
+    }
+
+    #ifdef DEBUG
+    printf("DEBUG# Receiver thread started\n");
+    #endif
+  
+    char message_copy[PIPE_BUFFER_SIZE];
+    QueueMessage qmsg;
+
+    while(1){
+        if(msgrcv(back_msq_id, &qmsg, sizeof(QueueMessage), 1, 0) == -1){
+            perror("<ERROR> Could not receive message\n");
+            return NULL;
+        }
+
+        strcpy(message_copy, qmsg.text);
+
+        char *token = strtok(message_copy, "#");
+
+        if(strcmp(token, "SHM") == 0){
+            print_statistics(qmsg.text);
+        }
+        
+
+    }
+
+}
+
+void print_statistics(char *message){
+    int spent_video, spent_music, spent_social;
+    int reqs_video, reqs_music, reqs_social;
+
+    printf("Received message: %s\n", message);
+
+    // Token 1 is the shared memory type key
+    char *token = strtok(message, "#");
+
+    // Token 2 the amount of data spent on video
+    token = strtok(NULL, "#");
+    spent_video = atoi(token);
+
+    // Token 3 is the amount of video requests
+    token = strtok(NULL, "#");
+    reqs_video = atoi(token);
+
+    // Token 4 is the amount of data spent on music
+    token = strtok(NULL, "#");
+    spent_music = atoi(token);
+
+    // Token 5 is the amount of music requests
+    token = strtok(NULL, "#");
+    reqs_music = atoi(token);
+
+    // Token 6 is the amount data spent on social 
+    token = strtok(NULL, "#");
+    spent_social = atoi(token);
+
+    // Token 7 is the amount of social requests
+    token = strtok(NULL, "#");
+    reqs_social = atoi(token);
+
+
+    // Print everything
+    printf("Video:\n\tData spent: %d\n\tRequests: %d\n", spent_video, reqs_video);
+    printf("Music:\n\tData spent: %d\n\tRequests: %d\n", spent_music, reqs_music);
+    printf("Social:\n\tData spent: %d\n\tRequests: %d\n\n", spent_social, reqs_social);
+
+}
+
 void interpret_command(char *command){
     char message[PIPE_BUFFER_SIZE] = "1#";
 
@@ -139,21 +219,6 @@ void send_message(char *message){
     }
     printf("Message sent\n");
 }
-
-int check_other_backoffice_users(){
-    // Even though the semaphore is not used as a synchronization device, it is created to prevent multiple backoffice users
-    backoffice_semaphore = sem_open(BACKOFFICE_SEMAPHORE, O_CREAT | O_EXCL, 0666, 1);
-    // Handle every error except the one that indicates that the semaphore already exists
-    if((backoffice_semaphore == SEM_FAILED) && (errno == EEXIST)){
-        perror("<ERROR> Could not create semaphore\n");
-        exit(1);
-    }
-    // Check if semaphore already exists
-    if(errno == EEXIST){ 
-        return 1;
-    }
-    return 0;
-}
     
 void signal_handler(int signal){
     if(signal == SIGINT){
@@ -164,6 +229,5 @@ void signal_handler(int signal){
 }
 
 void clean_up(){
-    sem_close(backoffice_semaphore);
-    sem_unlink(BACKOFFICE_SEMAPHORE);
-}
+
+}               

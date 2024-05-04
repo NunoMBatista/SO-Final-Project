@@ -82,7 +82,10 @@ void print_shared_memory(){
     printf("Spent Video: %d\n", shared_memory->spent_video);
     printf("Spent Music: %d\n", shared_memory->spent_music);
     printf("Spent Social: %d\n", shared_memory->spent_social);
-    printf("Total Requests: %d\n", shared_memory->total_requests);
+    
+    printf("Requests Video: %d\n", shared_memory->reqs_video);
+    printf("Requests Music: %d\n", shared_memory->reqs_music);
+    printf("Requests Social: %d\n", shared_memory->reqs_social);
     printf("\n");
 
     for(int i = 0; i < config->MOBILE_USERS; i++){

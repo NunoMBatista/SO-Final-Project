@@ -29,7 +29,6 @@
 #include "global.h"
 #include "queue.h"
 
-
 // Authorization engine process
 int auth_engine_process(int id){
     #ifdef DEBUG
@@ -151,20 +150,38 @@ int auth_engine_process(int id){
                 case 'V':
                     sprintf(log_message_type, "VIDEO AUTHORIZATION REQUEST");
                     shared_memory->spent_video += add_stats;
+                    shared_memory->reqs_video++;
                     break;
                 case 'M':
                     sprintf(log_message_type, "MUSIC AUTHORIZATION REQUEST");
                     shared_memory->spent_music += add_stats;
+                    shared_memory->reqs_music++;
                     break;
                 case 'S':
                     sprintf(log_message_type, "SOCIAL AUTHORIZATION REQUEST");
                     shared_memory->spent_social += add_stats;
+                    shared_memory->reqs_social++;
                     break;
             }
-            shared_memory->total_requests += 1;
 
         }
-    
+        
+        // If it's a backoffice request
+        if(type == 'D'){
+            sprintf(log_message_type, "BACKOFFICE DATA_STATS REQUEST");
+            printf("\n\n\n\n\n RECEIVED BACKOFFICE DATA_STATS \n\n\n\n");
+
+            response_applicable = 1;
+            /*
+                Message format:
+                SHM#<spent_video>#<reqs_video>#<spent_music>#<reqs_music>#<spent_social>#<reqs_social>            
+            */
+            sprintf(response, "SHM#%d#%d#%d#%d#%d#%d", shared_memory->spent_video, shared_memory->reqs_video, shared_memory->spent_music, shared_memory->reqs_music, shared_memory->spent_social, shared_memory->reqs_social);
+            request.user_id = 1; // The backoffice user id
+
+            sprintf(log_process_feedback, "BACKOFFICE DATA_STATS REQUEST PROCESSED");
+        }
+
         #ifdef SHARED_MEMORY_DISPLAY
         print_shared_memory();
         #endif

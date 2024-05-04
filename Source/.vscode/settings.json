@@ -65,6 +65,7 @@
     "random": "c",
     "system_functions.h": "c",
     "queue.h": "c",
-    "stat.h": "c"
+    "stat.h": "c",
+    "select.h": "c"
   }
 }

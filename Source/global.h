@@ -55,7 +55,10 @@ typedef struct{
     int spent_video;
     int spent_music;
     int spent_social;
-    int total_requests;
+    
+    int reqs_video;
+    int reqs_music;
+    int reqs_social;
     MobileUserData *users;
 } SharedMemory; 
 

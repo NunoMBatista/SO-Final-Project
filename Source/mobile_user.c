@@ -68,8 +68,6 @@ int threads_should_exit = 0; // Flag to signal the threads to exit
 int fd_user_pipe;
 int user_msq_id;
 
-
-
 int main(int argc, char *argv[]){
     // Check if the mobile user can create the main lockfile
     int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);

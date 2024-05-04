@@ -267,17 +267,16 @@ int create_auth_manager(){
         printf("<ARM>DEBUG# Creating receiver and sender threads...\n");
         #endif
 
-        pthread_t receiver, sender;
-        pthread_create(&receiver, NULL, receiver_thread, NULL);
-        pthread_create(&sender, NULL, sender_thread, NULL);
+        pthread_create(&receiver_t, NULL, receiver_thread, NULL);
+        pthread_create(&sender_t, NULL, sender_thread, NULL);
 
         #ifdef DEBUG
         printf("<ARM>DEBUG# Threads created successfully\n");
         #endif
 
         // Wait for threads to finish
-        pthread_join(receiver, NULL);
-        pthread_join(sender, NULL);
+        pthread_join(receiver_t, NULL);
+        pthread_join(sender_t, NULL);
 
         exit(0);
     }

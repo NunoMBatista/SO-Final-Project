@@ -63,11 +63,17 @@ pthread_cond_t sender_cond = PTHREAD_COND_INITIALIZER;
 int extra_auth_engine = 0;
 pid_t extra_auth_pid = -1;
 
+pid_t parent_pid;
+
+pthread_t receiver_t;
+pthread_t sender_t;
+int arm_threads_exit = 0;
+
+
 int main(int argc, char *argv[]){
     #ifdef DEBUG
     printf("<SYS MAN> Is process number %d\n", getpid());
     #endif
-
     // Create a lockfile to prevent multiple instances of the program with only read permissions for the group
     int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
     if (lockfile == -1){
@@ -85,6 +91,8 @@ int main(int argc, char *argv[]){
         printf("<INCORRECT NUMBER OF ARGUMENTS>\n Correct usage: %s {config_file}\n", argv[0]);
         return 1;
     }
+
+    parent_pid = getpid();
 
     char *config_file = argv[1];
 

@@ -107,12 +107,10 @@ int main(){
     // Wait for a command 
     char command[100];
     while(1){
-        
         printf(MAIN_STRING);
         
         printf("\n$ ");
-
-
+        
         if(fgets(command, 100, stdin) == NULL){
             perror("<ERROR> Could not read command\n");
             return 1;
@@ -266,7 +264,6 @@ void signal_handler(int signal){
 }
 
 void clean_up(){
-
     // We don't need a mutex to access the flag because writing to a int is atomic
     stop_receiver = 1;
 
@@ -278,10 +275,13 @@ void clean_up(){
     if(msgsnd(back_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
         perror("<ERROR> Could not send message to message queue\n");
     }
-
-
+    
+    // Wait for the receiver thread to finish
     pthread_join(receiver_thread, NULL);
+    
+    // Close the back pipe
     close(fd_back_pipe);
 
+    // Remove the lockfile
     unlink(BACKOFFICE_LOCKFILE);
 }               

@@ -48,13 +48,45 @@
 
 // Cleans up the system, called by the signal handler
 void clean_up(){
-    // ADICIONAR MÁSCARAS AO SIGINT
+    signal(SIGINT, SIG_IGN); // Ignore SIGINT while cleaning up
+    // if(getpid() != parent_pid){
+    //     return;
+    // }
+
+    printf("phase 1\n");
+
+    arm_threads_exit = 1;
+    // Send dummy message to receiver thread to wake it up and subsequently notify sender
+    // if(write(fd_user_pipe, "2#VIDEO#10", 11) == -1){
+    //     write_to_log("<ERROR SENDING DUMMY MESSAGE TO RECEIVER THREAD>");
+    // }
+    
+    // pthread_join(sender_t, NULL);
+    // pthread_join(receiver_t, NULL);
+    
+    printf("phase 2\n");
+
     // REMOVER MESSAGE_QUEUE_KEY FILE
     // CLEAN NAMED PIPES AND FREE auth_engine_pipes
     // FREE THE QUEUES 
     // DON'T FORGET TO LOOK FOR AND FREE EVERY MALLOC
 
     write_to_log("5G_AUTH_PLATFORM SIMULATOR CLOSING");
+
+    // Kill extra auth engine if it's active   
+    if(extra_auth_engine){
+        kill(extra_auth_pid, SIGKILL);
+    }
+
+    // Kill auth engines
+       
+
+    // Destroy mutexes and condition variables
+    pthread_mutex_destroy(&queues_mutex);
+    pthread_cond_destroy(&sender_cond);
+    pthread_mutex_destroy(&auxiliary_shm->monitor_engine_mutex);
+    pthread_cond_destroy(&auxiliary_shm->monitor_engine_cond);
+
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Detatching and deleting the shared memory\n");
@@ -136,6 +168,10 @@ void clean_up(){
     sem_unlink(LOG_SEMAPHORE);
     sem_close(shared_memory_sem);
     sem_unlink(SHARED_MEMORY_SEMAPHORE);
+    sem_close(aux_shm_sem);
+    sem_unlink(AUXILIARY_SHM_SEMAPHORE);
+    sem_close(engines_sem);
+    sem_unlink(ENGINES_SEMAPHORE);
 }
 
 // Signal handler for SIGINT

@@ -40,7 +40,7 @@ void* sender_thread(){
     write_to_log("THREAD SENDER CREATED");
 
     // JUST READ VIDEOQUEUE FOR NOW, IMPLEMENT THE OTHER QUEUE LATER
-    while(1){
+    while(!arm_threads_exit){
         // Check condition in mutual exclusion
         pthread_mutex_lock(&queues_mutex);
         #ifdef DEBUG
@@ -138,6 +138,11 @@ void* sender_thread(){
         }
         pthread_mutex_unlock(&queues_mutex);
     }
+
+    #ifdef DEBUG
+    printf("<SENDER>DEBUG# Sender thread exiting\n");
+    #endif
+
     return NULL;
 }
 
@@ -154,7 +159,7 @@ void* receiver_thread(){
     int max_fd = max(fd_user_pipe, fd_back_pipe);
     int read_bytes;
 
-    while(1){
+    while(!arm_threads_exit){
         char buffer[PIPE_BUFFER_SIZE];
         FD_ZERO(&read_set);
         FD_SET(fd_user_pipe, &read_set);
@@ -203,6 +208,10 @@ void* receiver_thread(){
         print_progress(other_queue->num_elements, other_queue->max_elements);
         #endif
     }
+
+    #ifdef DEBUG
+    printf("<RECEIVER>DEBUG# Receiver thread exiting\n");
+    #endif
 
     return NULL;
 }

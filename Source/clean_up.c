@@ -49,22 +49,20 @@
 // Cleans up the system, called by the signal handler
 void clean_up(){
     signal(SIGINT, SIG_IGN); // Ignore SIGINT while cleaning up
-    // if(getpid() != parent_pid){
-    //     return;
-    // }
+    if(getpid() != parent_pid){       
+        return;
+    }
 
-    printf("phase 1\n");
 
-    arm_threads_exit = 1;
+    // arm_threads_exit = 1;
     // Send dummy message to receiver thread to wake it up and subsequently notify sender
-    // if(write(fd_user_pipe, "2#VIDEO#10", 11) == -1){
-    //     write_to_log("<ERROR SENDING DUMMY MESSAGE TO RECEIVER THREAD>");
+    
+    // char dummy[PIPE_BUFFER_SIZE] = "2#VIDEO#10";
+    // if(write(fd_user_pipe, dummy, PIPE_BUFFER_SIZE) == -1){
+    //     write_to_log("<ERROR SENDING DUMMY MESSAGE TO RECEIVER THREAD>\n");
     // }
-    
-    // pthread_join(sender_t, NULL);
-    // pthread_join(receiver_t, NULL);
-    
-    printf("phase 2\n");
+
+    // The pthread_join function is already being called in the ARM process
 
     // REMOVER MESSAGE_QUEUE_KEY FILE
     // CLEAN NAMED PIPES AND FREE auth_engine_pipes
@@ -79,14 +77,16 @@ void clean_up(){
     }
 
     // Kill auth engines
+
+
        
 
     // Destroy mutexes and condition variables
     pthread_mutex_destroy(&queues_mutex);
     pthread_cond_destroy(&sender_cond);
-    pthread_mutex_destroy(&auxiliary_shm->monitor_engine_mutex);
-    pthread_cond_destroy(&auxiliary_shm->monitor_engine_cond);
 
+    // pthread_mutex_destroy(&(auxiliary_shm->monitor_engine_mutex));
+    // pthread_cond_destroy(&(auxiliary_shm->monitor_engine_cond));
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Detatching and deleting the shared memory\n");
@@ -177,7 +177,9 @@ void clean_up(){
 // Signal handler for SIGINT
 void signal_handler(int signal){
     if(signal == SIGINT){
-        write_to_log("SIGNAL SIGINT RECEIVED");
+        if(getpid() == parent_pid){
+            write_to_log("SIGNAL SIGINT RECEIVED");
+        }
         clean_up();
         exit(0);
     }

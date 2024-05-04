@@ -64,11 +64,11 @@ int extra_auth_engine = 0;
 pid_t extra_auth_pid = -1;
 
 pid_t parent_pid;
+pid_t arm_pid;
 
 pthread_t receiver_t;
 pthread_t sender_t;
 int arm_threads_exit = 0;
-
 
 int main(int argc, char *argv[]){
     #ifdef DEBUG
@@ -100,12 +100,6 @@ int main(int argc, char *argv[]){
 
     // Wait for all child processes to finish
     while(wait(NULL) > 0);
-
-    add_mobile_user(1, 100);
-    add_mobile_user(2, 200);
-    add_mobile_user(3, 300);
-
-    print_shared_memory();
 
     clean_up();
     return 0; 

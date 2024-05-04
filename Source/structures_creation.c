@@ -46,7 +46,9 @@ int create_monitor_engine(){
 
     if(pid == 0){
         // Child process
-        write_to_log("PROCESS MONITOR_ENGINE CREATED");
+        char mes[PIPE_BUFFER_SIZE];
+        sprintf(mes, "<ME> MONITOR ENGINE STARTED WITH PID %d", getpid());
+        write_to_log(mes);
 
         monitor_engine_process();
         
@@ -249,6 +251,8 @@ int create_auth_manager(){
     }
 
     if(pid == 0){
+        arm_pid = getpid();
+
         // Child process
         #ifdef DEBUG
         printf("<ARM>DEBUG# Authorization Requests Manager has PID %d\n", getpid());
@@ -274,9 +278,13 @@ int create_auth_manager(){
         printf("<ARM>DEBUG# Threads created successfully\n");
         #endif
 
+        // Do not end on SIGINT, only when the threads finish
+        printf("waiting threads to finish man\n");
         // Wait for threads to finish
         pthread_join(receiver_t, NULL);
         pthread_join(sender_t, NULL);
+
+        printf("\n\n\n\n\nARM THREADS FINISHED\n");
 
         exit(0);
     }

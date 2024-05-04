@@ -89,7 +89,6 @@ void* sender_thread(){
             printf("<SENDER>DEBUG# Engines semaphore value: %d\n", sem_value);
         }
         #endif
-
         
         // Wait until an auth engine is available
         sem_wait(engines_sem);
@@ -164,6 +163,10 @@ void* receiver_thread(){
         FD_ZERO(&read_set);
         FD_SET(fd_user_pipe, &read_set);
         FD_SET(fd_back_pipe, &read_set);
+
+        #ifdef DEBUG
+        printf("<RECEIVER>DEBUG# Waiting for messages...\n");
+        #endif
         // Wait until something is written to the pipes
         if(select(max_fd + 1, &read_set, NULL, NULL, NULL) == -1){
             write_to_log("<ERROR SELECTING PIPES>");
@@ -192,7 +195,7 @@ void* receiver_thread(){
             #ifdef DEBUG
             printf("<RECEIVER>DEBUG# Received message from BACK_PIPE: %s\n", buffer);
             #endif
-        }
+        }      
 
         // Parse and send the message to one of the queues
         parse_and_send(buffer);
@@ -212,7 +215,6 @@ void* receiver_thread(){
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Receiver thread exiting\n");
     #endif
-
     return NULL;
 }
 
@@ -344,7 +346,6 @@ void parse_and_send(char *message){
 
         // It's a kill message, do not send to any queue, just remove the user from the system
         if(token[0] == 'K'){
-            printf("\n\n\n SHOULD REMOVE USER %d\n\n\n", request.user_id);
             sem_wait(shared_memory_sem); // Lock shared memory to remove user in mutual exclusion
             #ifdef DEBUG
             printf("<RECEIVER>DEBUG# Locked shared memory to remove user %d\n", request.user_id);
@@ -380,7 +381,6 @@ void parse_and_send(char *message){
         }
         // If it's an initial request, there are only 2 arguments
         else if(token[0] >= '0' && token[0] <= '9'){
-            printf("\n\n\n%s IS AN INITIAL MESSAGE\n\n\n", message_copy);
             request.request_type = 'I';
             request.initial_plafond = atoi(token);
         }

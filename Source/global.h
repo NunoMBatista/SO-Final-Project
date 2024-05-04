@@ -113,6 +113,7 @@ extern int extra_auth_engine; // 0 if it's not active, 1 otherwise
 extern pid_t extra_auth_pid; // PID of the extra auth engine
 
 extern pid_t parent_pid; // PID of the parent process
+extern pid_t arm_pid; // PID of the ARM process
 
 extern pthread_t receiver_t;
 extern pthread_t sender_t;

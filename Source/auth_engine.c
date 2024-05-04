@@ -31,6 +31,7 @@
 
 // Authorization engine process
 int auth_engine_process(int id){
+    
     #ifdef DEBUG
     printf("<AE%d>DEBUG# Auth engine started with PID %d\n", id, getpid());
     #endif

@@ -161,6 +161,7 @@ int auth_engine_process(int id){
                     shared_memory->spent_social += add_stats;
                     break;
             }
+            shared_memory->total_requests += 1;
 
         }
     

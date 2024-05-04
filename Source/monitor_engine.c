@@ -71,8 +71,6 @@ void monitor_engine_process(){
                     percentage_spent = 100;
                 }              
 
-
-
                 int percentage_notification;
                 #ifdef DEBUG
                 printf("<ME>DEBUG# User %d has spent %.2f\n", current_user.user_id, percentage_spent);
@@ -92,7 +90,6 @@ void monitor_engine_process(){
                     percentage_notification = 80;
                 }
 
-                
                 // Notify user
                 if(current_user.already_notified != percentage_notification){
                     #ifdef DEBUG

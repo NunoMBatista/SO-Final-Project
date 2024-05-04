@@ -366,6 +366,7 @@ void *message_receiver(){
             #ifdef DEBUG
             printf("<MESSAGE THREAD>DEBUG# Received exit message\n");
             #endif
+            printf("Exiting...\n");
             break;
         }    
     }
@@ -382,6 +383,8 @@ void *message_receiver(){
     printf("DEBUG# MESSAGE THREAD EXITING\n");
     #endif
 
+    printf("Waiting for the threads to end current requests...\n");
+
     return NULL;
 }
 
@@ -393,7 +396,7 @@ void print_arguments(int initial_plafond, int requests_left, int delta_video, in
     printf("* Mobile User Data                 *\n");
     printf("************************************\n");
     printf("* Initial Plafond: %15d *\n", initial_plafond);
-    printf("* Requests Left:   %15d *\n", requests_left);
+    printf("* Max Requests:    %15d *\n", requests_left);
     printf("* Delta Video:     %15d *\n", delta_video);
     printf("* Delta Music:     %15d *\n", delta_music);
     printf("* Delta Social:    %15d *\n", delta_social);

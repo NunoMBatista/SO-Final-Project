@@ -64,6 +64,7 @@
     "semaphore.h": "c",
     "random": "c",
     "system_functions.h": "c",
-    "queue.h": "c"
+    "queue.h": "c",
+    "stat.h": "c"
   }
 }

@@ -123,6 +123,7 @@ int create_shared_memory(){
     shared_memory->spent_video = 0;
     shared_memory->spent_social = 0;
     shared_memory->spent_music = 0;
+    shared_memory->total_requests = 0;
     for(int i = 0; i < config->MOBILE_USERS; i++){
         shared_memory->users[i].isActive = 0;
     }

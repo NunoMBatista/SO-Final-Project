@@ -86,7 +86,7 @@ int main(){
     
     char message[100];
     sprintf(message, "BACKOFFICE USER STARTING - PROCESS ID: %d", getpid());
-    printf("%s\n", message);
+    printf("%s", message);
 
     #ifdef DEBUG
     printf("DEBUG# Creating receiver thread");
@@ -165,6 +165,7 @@ void *receiver(){
 void print_statistics(char *message){
     int spent_video, spent_music, spent_social;
     int reqs_video, reqs_music, reqs_social;
+    char *separator = "░░░▒▒▓█▓▒▒░░░";
 
     // clear the screen
     printf("\033[H\033[J");
@@ -206,15 +207,20 @@ void print_statistics(char *message){
     printf("\t    +---------------------+\n");
     printf("\t    | Data spent: %7d |\n", spent_video);
     printf("\t    | Requests:   %7d |\n", reqs_video);
-    printf("\t    +---------------------+\n\n");
+    printf("\t    +---------------------+\n");
   
+    printf("\n\t         %s\n\n", separator);
+
     printf("\t    \033[1;33m+---------------------+\n");
     printf("\t    |        Music:       |\n");
     printf("\t    +---------------------+\n");
     printf("\t    | Data spent: %7d |\n", spent_music);
     printf("\t    | Requests:   %7d |\n", reqs_music);
-    printf("\t    +---------------------+\n\n");
+    printf("\t    +---------------------+\n");
   
+    printf("\n\t         %s\n\n", separator);
+
+
     printf("\t    \033[1;33m+---------------------+\n");
     printf("\t    |        Social:      |\n");
     printf("\t    +---------------------+\n");

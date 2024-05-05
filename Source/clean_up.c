@@ -29,21 +29,6 @@
 #include "global.h"
 #include "queue.h"
 
-/*
-    To implement:
-    GEN - Might need stdout semaphore (the log_sem is the only one actually needed, we can add a color parameter to write_to_log to differentiate between the different processes, use enums)
-
-    ME - Get periodic stats
-    ME - Condition variable
-
-    SYS MAN - Remove nested aux shared memory
-    SYS MAN - Finish tasks before exiting
-
-    ARM - Verificar se posso ter video_queue_mutex e other_queue_mutex
-
-    ARM - Close and free unnamed pipes
-*/
-
 // Cleans up the system, called by the signal handler
 void clean_up(){
     signal(SIGINT, SIG_IGN); // Ignore SIGINT while cleaning up
@@ -177,6 +162,7 @@ void clean_up(){
     unlink(BACKOFFICE_LOCKFILE);
 }
 
+// Cleans up the ARM process and it's structures
 void clean_up_arm(){     
     // Notify ARM threads to exit
     notify_arm_threads();
@@ -255,6 +241,7 @@ void notify_arm_threads(){
     }
 }
 
+// Ask a given auth engine to exit
 void kill_auth_engine(int signal){
     #ifdef DEBUG
     printf("<AE%d>DEBUG# Received signal %d\n", auth_engine_index, signal);

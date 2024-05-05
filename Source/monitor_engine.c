@@ -29,11 +29,13 @@
 #include "global.h"
 #include "queue.h"
 
-pthread_t periodic_notifications_thread; // Implement later
+pthread_t periodic_notifications_t; // Implement later
 
 // Monitor Engine main function
 // Will notify users once they have reached 80%, 90% and 100% of their plafond
 void monitor_engine_process(){
+    pthread_create(&periodic_notifications_t, NULL, periodic_notifications_thread, NULL);
+
     while(1){
         // Wait for an authorization request to notify
         pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
@@ -121,6 +123,43 @@ void monitor_engine_process(){
         pthread_mutex_unlock(&auxiliary_shm->monitor_engine_mutex);
     }
 
+}
+
+void *periodic_notifications_thread(){
+    while(1){
+        sleep(30);
+
+        // Check if the backoffice user is online
+        int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
+        if (lockfile == -1){
+            perror("open");
+            continue;
+        }
+        // If the lockfile was successfully locked, the system is not online
+        if(lockf(lockfile, F_TLOCK, 0) == 0){ // The lock was successfully apllied
+            printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+            unlink(MAIN_LOCKFILE); // Remove the lockfile
+            continue;
+        }
+
+        char stats[PIPE_BUFFER_SIZE];
+
+        sem_wait(shared_memory_sem);
+        sprintf(stats, "SHM#%d#%d#%d#%d#%d#%d", shared_memory->spent_video, shared_memory->reqs_video, shared_memory->spent_music, shared_memory->reqs_music, shared_memory->spent_social, shared_memory->reqs_social);
+        sem_post(shared_memory_sem);
+
+        QueueMessage qmsg;
+        qmsg.type = 1;
+        strcpy(qmsg.text, stats);
+
+        if(msgsnd(message_queue_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+            write_to_log("Error sending message to monitor engine");
+        }
+        #ifdef DEBUG
+        printf("<ME>DEBUG# Sent stats to monitor engine\n");
+        #endif
+        
+    }
 }
 
 // Deactivates a user, called by the auth engines

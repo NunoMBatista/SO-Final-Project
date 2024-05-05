@@ -152,7 +152,13 @@ void* sender_thread(){
             extra_auth_engine = 0;
             //sem_wait(engines_sem); // Remove the extra engine from the semaphore
         }
+
         pthread_mutex_unlock(&queues_mutex);
+
+
+        #ifdef QUEUE_PROGRESS_BAR
+        print_queues(2);
+        #endif
     }
 
     #ifdef DEBUG
@@ -226,10 +232,7 @@ void* receiver_thread(){
         #endif
 
         #ifdef QUEUE_PROGRESS_BAR
-        printf("VIDEO QUEUE: ");
-        print_progress(video_queue->num_elements, video_queue->max_elements);
-        printf("OTHER QUEUE: ");
-        print_progress(other_queue->num_elements, other_queue->max_elements);
+        print_queues(1);
         #endif
     }
 
@@ -360,6 +363,7 @@ void parse_and_send(char *message){
             }
             else{
                 shared_memory->users[user_index].isActive = 0;
+                shared_memory->num_users--;
             }
 
             // There's no need to send a notification through the message queue, the mobile_user process is already being terminated

@@ -295,7 +295,7 @@ int add_mobile_user(int user_id, int plafond){
                 write_to_log("<ERROR ADDING USER TO SHARED MEMORY> User already exists");
                 return 2;
             }
-            
+            shared_memory->num_users++;
             shared_memory->users[i].isActive = 1; // Set user as active
             shared_memory->users[i].user_id = user_id; // Set user id
             shared_memory->users[i].initial_plafond = plafond; // Set initial plafond

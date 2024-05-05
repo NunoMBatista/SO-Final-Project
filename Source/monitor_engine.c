@@ -29,7 +29,7 @@
 #include "global.h"
 #include "queue.h"
 
-pthread_t periodic_notifications_t; // Implement later
+pthread_t periodic_notifications_t;
 
 // Monitor Engine main function
 // Will notify users once they have reached 80%, 90% and 100% of their plafond
@@ -130,15 +130,15 @@ void *periodic_notifications_thread(){
         sleep(30);
 
         // Check if the backoffice user is online
-        int lockfile = open(MAIN_LOCKFILE, O_RDWR | O_CREAT, 0640);
+        int lockfile = open(BACKOFFICE_LOCKFILE, O_RDWR | O_CREAT, 0640);
         if (lockfile == -1){
             perror("open");
             continue;
         }
         // If the lockfile was successfully locked, the system is not online
         if(lockf(lockfile, F_TLOCK, 0) == 0){ // The lock was successfully apllied
-            printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
-            unlink(MAIN_LOCKFILE); // Remove the lockfile
+            printf("\033[31m!!! THE BACKOFFICE USER IS NOT ONLINE, PERIODIC STATS NOT SENT !!!\n\033[0m");
+            unlink(BACKOFFICE_LOCKFILE); // Remove the lockfile
             continue;
         }
 
@@ -165,7 +165,8 @@ void *periodic_notifications_thread(){
 // Deactivates a user, called by the auth engines
 int deactivate_user(int user_id, int user_index){
     shared_memory->users[user_index].isActive = 0;
-
+    shared_memory->num_users--;
+    
     QueueMessage qmsg; 
     qmsg.type = user_id; 
     sprintf(qmsg.text, "DIE");

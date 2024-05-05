@@ -52,5 +52,6 @@ void write_to_log(char *message);
 void print_progress(int current, int max);
 void print_shared_memory();
 void sleep_milliseconds(int milliseconds);
+void print_queues(int color);
 
 #endif

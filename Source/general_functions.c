@@ -58,7 +58,23 @@ void write_to_log(char *message){
     strftime(time_str, 100, "%Y-%m-%d %H:%M:%S", time_info);
 
     // Print message to console
+    switch(current_process){
+        case SYSMAN:
+            printf("\033[33m");
+            break;
+        case ARM:
+            printf("\033[34m");
+            break;
+        case AUTH_ENGINE:
+            printf("\033[35m");
+            break;
+        case MONITOR_ENGINE:
+            printf("\033[36m");
+            break;
+    }
+
     printf("[%s] %s\n", time_str, message);
+    printf("\033[0m");
 
     // Print message to log file
     fprintf(log_file, "[%s] %s\n", time_str, message);
@@ -76,17 +92,12 @@ void print_shared_memory(){
     printf("DEBUG# Printing current state of the shared memory...\n");
     #endif
 
-    printf("\n-> Current state of the shared memory <-\n");
-    
-    
-    printf("Spent Video: %d\n", shared_memory->spent_video);
-    printf("Spent Music: %d\n", shared_memory->spent_music);
-    printf("Spent Social: %d\n", shared_memory->spent_social);
-    
-    printf("Requests Video: %d\n", shared_memory->reqs_video);
-    printf("Requests Music: %d\n", shared_memory->reqs_music);
-    printf("Requests Social: %d\n", shared_memory->reqs_social);
-    printf("\n");
+    sem_wait(log_semaphore); // Wait to access stdout
+    printf("\033[1;37m");
+
+    int total_users = shared_memory->num_users;
+    int already_printed = 0;
+    char *up_r = "╔", *up_l = "╗", *down_r = "╣", *down_l = "╠";
 
     for(int i = 0; i < config->MOBILE_USERS; i++){
         if(shared_memory->users[i].isActive == 1){
@@ -94,12 +105,31 @@ void print_shared_memory(){
             int spent = shared_memory->users[i].spent_plafond;
             int remaining = initial - spent;
 
-            printf("User %d:\n", shared_memory->users[i].user_id);
-            printf("\tInitial Plafond: %d\n", initial);
-            printf("\tSpent Plafond: %d\n", spent);
-            printf("\tRemaining Plafond: %d\n", remaining);
+            if(already_printed == 0){
+                printf("\n%s═════════════════════════════════════════════════════════════════════════════%s\n", up_r, up_l);
+            }
+            else{
+                printf("\n");
+            }
+           
+           
+            if(already_printed == total_users - 1){
+                down_r = "╝";
+                down_l = "╚";
+            }
+            else{
+                down_r = "╣";
+                down_l = "╠";
+            }
 
-            printf("\tProgress: [");
+            already_printed++;
+
+            printf("║ User %-71d║\n", shared_memory->users[i].user_id);
+            printf("║ \tInitial Plafond: %-53d║\n", initial);
+            printf("║ \tSpent Plafond: %-55d║\n", spent);
+            printf("║ \tRemaining Plafond: %-51d║\n", remaining);
+
+            printf("║ \tProgress: [");
             int progress = (int)(((double)spent / initial) * 50);
             for(int j = 0; j < 50; j++){
                 if(j < progress){
@@ -108,9 +138,20 @@ void print_shared_memory(){
                     printf("-");
                 }
             }
-            printf("]\n\n");
+            printf("]        ║\n");
+            printf("%s═════════════════════════════════════════════════════════════════════════════%s", down_l, down_r);
+
+            // The bottom border of the current user becomes the top border of the next user
+            up_r = down_l;
+            up_l = down_r;
+            down_r = "╣";
+            down_l = "╠";
         }
     }
+
+    printf("\033[0m\n\n");
+
+    sem_post(log_semaphore); // Release stdout
 }
 
 // Sleeps for the specified amount of milliseconds
@@ -136,4 +177,36 @@ void print_progress(int current, int max){
         else printf(" ");
     }
     printf("] %d%%\n", (int)(current * 100.0 / max));
+}
+
+void print_queues(int color){
+    /*
+        Color:
+            1 - Red
+            2 - Green
+    */
+    switch(color){
+        case 1:
+            printf("\033[1;31m");
+            break;
+        case 2:
+            printf("\033[1;32m");
+            break;
+    }
+
+    sem_wait(log_semaphore); // Wait to access stdout
+
+    printf("\n-> Current state of the queues <-\n");
+
+    pthread_mutex_lock(&queues_mutex);
+    printf("Video Queue:\n");
+    print_progress(video_queue->num_elements, video_queue->max_elements);
+
+    printf("Other Queue:\n");
+    print_progress(other_queue->num_elements, other_queue->max_elements);
+
+    printf("\n\033[0m");
+
+    pthread_mutex_unlock(&queues_mutex);
+    sem_post(log_semaphore); // Release stdout
 }

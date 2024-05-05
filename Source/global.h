@@ -7,7 +7,7 @@
 #define GLOBAL_H
 
 //#define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
-#define DEBUG // Comment this line to remove debug messages
+//#define DEBUG // Comment this line to remove debug messages
 #define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
@@ -32,6 +32,14 @@
 #include <signal.h>
 
 #include "queue.h"
+
+// Used to easily differentiate stdout messages by color
+enum process_type{ 
+    SYSMAN, // YELLOW
+    ARM, // BLUE
+    AUTH_ENGINE, // PURPLE 
+    MONITOR_ENGINE // CYAN
+};
 
 typedef struct{
     long type;
@@ -126,4 +134,7 @@ extern volatile sig_atomic_t auth_engine_exit;
 extern pid_t *auth_engine_pids; // Array with the pids of the main auth engines (not the extra one)
 extern int auth_engine_index; // Index of the current auth engine (changes between different auth engines) used in kill_auth_engine
 
+extern pthread_t periodic_notifications_t;
+
+extern enum process_type current_process;
 #endif

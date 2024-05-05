@@ -282,7 +282,8 @@ void signal_handler(int signal){
             #endif
 
             // CANCEL THREAD AND WAIT FOR IT TO JOIN (SLEEP IS A CANCELATION POINT)
-
+            pthread_cancel(periodic_notifications_t);
+            pthread_join(periodic_notifications_t, NULL);
 
             exit(0);
         }

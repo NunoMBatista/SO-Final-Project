@@ -31,12 +31,11 @@
 
 // Creates the monitor engine process
 int create_monitor_engine(){   
-    // Create a new process
  
+    // Create a new process
     #ifdef DEBUG
     printf("<ME>DEBUG# Creating monitor engine...\n");
     #endif
- 
     monitor_pid = fork();
 
     if(monitor_pid == -1){
@@ -46,6 +45,7 @@ int create_monitor_engine(){
 
     if(monitor_pid == 0){
         monitor_pid = getpid();
+        current_process = MONITOR_ENGINE;
 
         signal(SIGTERM, signal_handler); // Only exit when receiving SIGTERM (called by system manager)
         signal(SIGINT, SIG_IGN); // Ignore SIGINT
@@ -249,7 +249,6 @@ int create_semaphores(){
 // Creates the ARM process, which will create the auth engines and the receiver/sender threads
 int create_auth_manager(){
     arm_pid = fork();
-    printf("\033[33mARM PID: %d\n\033[0m", arm_pid);
 
     if(arm_pid == -1){
         write_to_log("<ERROR CREATING AUTH MANAGER>");
@@ -258,6 +257,7 @@ int create_auth_manager(){
 
     if(arm_pid == 0){
         arm_pid = getpid();
+        current_process = ARM;
 
         signal(SIGTERM, signal_handler); // Only exit when receiving SIGTERM (called by system manager)
         signal(SIGINT, SIG_IGN); // Ignore SIGINT
@@ -353,6 +353,7 @@ int create_auth_engines(){
             signal(SIGTERM, kill_auth_engine);
 
             arm_pid = getppid();
+            current_process = AUTH_ENGINE;
 
             // Auth engine
             close(auth_engine_pipes[i][1]); // Close write end of the pipe

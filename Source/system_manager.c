@@ -73,6 +73,7 @@ volatile sig_atomic_t arm_threads_exit = 0;
 
 pid_t *auth_engine_pids; // Array with the pids of the main auth engines (not the extra one)
 
+enum process_type current_process;
 
 int main(int argc, char *argv[]){
     #ifdef DEBUG
@@ -97,6 +98,7 @@ int main(int argc, char *argv[]){
     }
 
     parent_pid = getpid();
+    current_process = SYSMAN;
 
     char *config_file = argv[1];
 

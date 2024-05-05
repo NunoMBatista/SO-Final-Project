@@ -26,7 +26,9 @@
 #include "global.h"
 
 #define BACKOFFICE_SEMAPHORE "backoffice_semaphore"
-#define MAIN_STRING "\n\n\t-> Welcome to the backoffice user interface <-\n\n\n\t -> data_stats - Gets consumption statistics\n\t -> reset - Resets the statistics\n\t -> exit - Exits the backoffice user interface\n\n\n"
+#define MAIN_STRING "\n\t -> data_stats - Gets consumption statistics\n\t -> reset - Resets the statistics\n\t -> exit - Exits the backoffice user interface\n\n\n"
+#define BACKOFFICE_LOGO "\n\n\t  ____             _       ____   __  __ _          \n\t |  _ \\           | |     / __ \\ / _|/ _(_)         \n\t | |_) | __ _  ___| | __ | |  | | |_| |_ _  ___ ___ \n\t |  _ < / _` |/ __| |/ / | |  | |  _|  _| |/ __/ _ \\\n\t | |_) | (_| | (__|   <  | |__| | | | | | | (_|  __/\n\t |____/ \\__,_|\\___|_|\\_\\  \\____/|_| |_| |_|\\___\\___|\n"
+#define SHARED_MEMORY_LOGO "\t╔═╗┬ ┬┌─┐┬─┐┌─┐┌┬┐  ╔╦╗┌─┐┌┬┐┌─┐┬─┐┬ ┬\n\t╚═╗├─┤├─┤├┬┘├┤  ││  ║║║├┤ ││││ │├┬┘└┬┘\n\t╚═╝┴ ┴┴ ┴┴└─└─┘─┴┘  ╩ ╩└─┘┴ ┴└─┘┴└─ ┴ \n\n"
 
 /*
     Execution instructions:
@@ -46,7 +48,6 @@ int fd_back_pipe;
 int back_msq_id;
 
 pthread_t receiver_thread;
-
 
 int main(){
     // Check if the backoffice user can create the main lockfile
@@ -108,10 +109,14 @@ int main(){
     // Wait for a command 
     char command[100];
     while(1){
+
+        printf("\033[1;32m");
+        printf(BACKOFFICE_LOGO);
+
         printf(MAIN_STRING);
-        
         printf("\n$ ");
-        
+        printf("\033[0m");
+
         if(fgets(command, 100, stdin) == NULL){
             perror("<ERROR> Could not read command\n");
             return 1;
@@ -170,9 +175,12 @@ void print_statistics(char *message){
     // clear the screen
     printf("\033[H\033[J");
 
-    printf("\033[1;36m+---------------------------------------------+\n");
-    printf("| RECEIVED CURRENT STATE OF THE SHARED MEMORY |\n");
-    printf("+---------------------------------------------+\n\n");
+    // printf("\033[1;36m+---------------------------------------------+\n");
+    // printf("| RECEIVED CURRENT STATE OF THE SHARED MEMORY |\n");
+    // printf("+---------------------------------------------+\n\n");
+
+    printf("\033[1;36m");
+    printf(SHARED_MEMORY_LOGO);
 
     // Token 1 is the shared memory type key
     char *token = strtok(message, "#");
@@ -202,31 +210,31 @@ void print_statistics(char *message){
     reqs_social = atoi(token);
 
     // Print everything
-    printf("\t    \033[1;33m+---------------------+\n");
-    printf("\t    |        Video:       |\n");
-    printf("\t    +---------------------+\n");
-    printf("\t    | Data spent: %7d |\n", spent_video);
-    printf("\t    | Requests:   %7d |\n", reqs_video);
-    printf("\t    +---------------------+\n");
-  
-    printf("\n\t         %s\n\n", separator);
-
-    printf("\t    \033[1;33m+---------------------+\n");
-    printf("\t    |        Music:       |\n");
-    printf("\t    +---------------------+\n");
-    printf("\t    | Data spent: %7d |\n", spent_music);
-    printf("\t    | Requests:   %7d |\n", reqs_music);
-    printf("\t    +---------------------+\n");
-  
-    printf("\n\t         %s\n\n", separator);
-
-
-    printf("\t    \033[1;33m+---------------------+\n");
-    printf("\t    |        Social:      |\n");
-    printf("\t    +---------------------+\n");
-    printf("\t    | Data spent: %7d |\n", spent_social);
-    printf("\t    | Requests:   %7d |\n", reqs_social);
-    printf("\t    +---------------------+\n\n");
+    printf("\t       \033[1;33m+---------------------+\n");
+    printf("\t       |        Video:       |\n");
+    printf("\t       +---------------------+\n");
+    printf("\t       | Data spent: %7d |\n", spent_video);
+    printf("\t       | Requests:   %7d |\n", reqs_video);
+    printf("\t       +---------------------+\n");
+     
+    printf("\n\t            %s\n\n", separator);
+   
+    printf("\t       \033[1;33m+---------------------+\n");
+    printf("\t       |        Music:       |\n");
+    printf("\t       +---------------------+\n");
+    printf("\t       | Data spent: %7d |\n", spent_music);
+    printf("\t       | Requests:   %7d |\n", reqs_music);
+    printf("\t       +---------------------+\n");
+     
+    printf("\n\t            %s\n\n", separator);
+   
+   
+    printf("\t       \033[1;33m+---------------------+\n");
+    printf("\t       |        Social:      |\n");
+    printf("\t       +---------------------+\n");
+    printf("\t       | Data spent: %7d |\n", spent_social);
+    printf("\t       | Requests:   %7d |\n", reqs_social);
+    printf("\t       +---------------------+\n\n");
     
     printf("\n\033[1;34m[ENTER] to continue\n\033[0m");   
 }

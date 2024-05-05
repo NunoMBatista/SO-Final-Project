@@ -86,16 +86,16 @@ int initialize_system(char* config_file){
     }
 
     #ifdef DEBUG
-    printf("<SYS MAN>DEBUG# Creating monitor engine...\n");
+    printf("<SYS MAN>DEBUG# Creating auth manager...\n");
     #endif
-    if(create_monitor_engine() != 0){
+    if(create_auth_manager() != 0){
         return 1;
     }
 
     #ifdef DEBUG
-    printf("<SYS MAN>DEBUG# Creating auth manager...\n");
+    printf("<SYS MAN>DEBUG# Creating monitor engine...\n");
     #endif
-    if(create_auth_manager() != 0){
+    if(create_monitor_engine() != 0){
         return 1;
     }
 

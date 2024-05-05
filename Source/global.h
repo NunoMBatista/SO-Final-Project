@@ -29,6 +29,8 @@
 
 #include <semaphore.h>
 #include <pthread.h>   
+#include <signal.h>
+
 #include "queue.h"
 
 typedef struct{
@@ -114,9 +116,14 @@ extern pid_t extra_auth_pid; // PID of the extra auth engine
 
 extern pid_t parent_pid; // PID of the parent process
 extern pid_t arm_pid; // PID of the ARM process
+extern pid_t monitor_pid; // PID of the monitor engine process
 
 extern pthread_t receiver_t;
 extern pthread_t sender_t;
-extern int arm_threads_exit; // 1 if the arm threads should exit, 0 otherwise
+extern volatile sig_atomic_t arm_threads_exit; // 1 if the arm threads should exit, 0 otherwise
+
+extern volatile sig_atomic_t auth_engine_exit;
+extern pid_t *auth_engine_pids; // Array with the pids of the main auth engines (not the extra one)
+extern int auth_engine_index; // Index of the current auth engine (changes between different auth engines) used in kill_auth_engine
 
 #endif

@@ -40,7 +40,11 @@ void* sender_thread(){
     write_to_log("THREAD SENDER CREATED");
 
     // JUST READ VIDEOQUEUE FOR NOW, IMPLEMENT THE OTHER QUEUE LATER
-    while(!arm_threads_exit){
+    while(1){
+        if(arm_threads_exit){
+            break;
+        }
+
         // Check condition in mutual exclusion
         pthread_mutex_lock(&queues_mutex);
         #ifdef DEBUG
@@ -57,6 +61,19 @@ void* sender_thread(){
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Sender thread notified\n");
             #endif
+
+
+            // Break out of the inner while loop
+            if(arm_threads_exit){
+                pthread_mutex_unlock(&queues_mutex);
+                break;
+            }
+        }
+
+        // Break out of the outer while loop
+        if(arm_threads_exit){
+            pthread_mutex_unlock(&queues_mutex);
+            break;
         }
 
         // Once notified, the sender will read the queues untill they are empty
@@ -141,7 +158,6 @@ void* sender_thread(){
     #ifdef DEBUG
     printf("<SENDER>DEBUG# Sender thread exiting\n");
     #endif
-
     return NULL;
 }
 
@@ -197,6 +213,11 @@ void* receiver_thread(){
             #endif
         }      
 
+        if(strcmp(buffer, "EXIT") == 0){
+            arm_threads_exit = 1;
+            break;
+        }
+
         // Parse and send the message to one of the queues
         parse_and_send(buffer);
 
@@ -239,7 +260,9 @@ void deploy_extra_engine(){
         // Child process (extra auth engine)
         
         // Signal handling
+        signal(SIGINT, SIG_IGN);
         signal(SIGTERM, kill_auth_engine);
+
         close(auth_engine_pipes[config->AUTH_SERVERS][1]); // Close write end of the pipe
 
         // Start the extra auth engine process with the last ID available
@@ -258,26 +281,6 @@ void deploy_extra_engine(){
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Extra auth engine deployed\n");
     #endif
-}
-
-// Kill the auth engine [make it only kill extra later]
-void kill_auth_engine(int signal){
-    if(signal == SIGTERM){
-        write_to_log("<AE>SIGTERM RECEIVED, KILLING AUTH ENGINE");
-        if(getpid() == extra_auth_pid){
-            // Free extra pipe memory
-            free(auth_engine_pipes[config->AUTH_SERVERS]);
-        }
-        else{
-            for(int i = 0; i < config->AUTH_SERVERS; i++){
-                free(auth_engine_pipes[i]);
-            }
-            free(auth_engine_pipes);
-        }
-
-        // MIGHT CHANGE THIS IN ORDER TO JUST CHANGE A FLAG AND LET THE LAST LOOP ITERATION HAPPEN
-        exit(0);
-    }
 }
 
 // Sends the messages to the queues, called by the receiver thread

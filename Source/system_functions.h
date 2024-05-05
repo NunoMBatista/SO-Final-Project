@@ -27,7 +27,7 @@ int create_monitor_engine();
 void* sender_thread();
 void* receiver_thread();
 void deploy_extra_engine();
-void kill_auth_engine(int signal);
+//void kill_extra_auth_engine(int signal);
 void parse_and_send(char *message);
 
 // Authentication Engine functions (auth_engine.c)
@@ -44,6 +44,9 @@ int notify_user(int user_id, int percentage);
 // Cleanup (clean_up.c)
 void clean_up();
 void signal_handler(int signal);
+void notify_arm_threads();
+void kill_auth_engine(int signal);
+
 
 // MISC (general_functions.c)
 void write_to_log(char *message);

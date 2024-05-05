@@ -15,6 +15,7 @@ typedef struct{
         R - Backoffice reset
         E - Backoffice invalid request
         F - Failed request
+        K - Kill auth engine
     */
     char request_type;
     int data_amount; // Data amount requested (if applicable)

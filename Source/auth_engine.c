@@ -29,9 +29,13 @@
 #include "global.h"
 #include "queue.h"
 
+int auth_engine_index;
+volatile sig_atomic_t auth_engine_exit = 0;
+
 // Authorization engine process
-int auth_engine_process(int id){
-    
+int auth_engine_process(int id){ 
+    auth_engine_index = id;
+
     #ifdef DEBUG
     printf("<AE%d>DEBUG# Auth engine started with PID %d\n", id, getpid());
     #endif
@@ -45,6 +49,13 @@ int auth_engine_process(int id){
     sem_post(engines_sem);
 
     while(1){
+        if(auth_engine_exit){
+            #ifdef DEBUG
+            printf("<AE%d>DEBUG# Exiting...\n", id);
+            #endif
+            break;
+        }
+
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is ready to receive a request\n", id);
         #endif
@@ -53,7 +64,14 @@ int auth_engine_process(int id){
         Request request;
         // Wait for message
         read(auth_engine_pipes[id][0], &request, sizeof(Request));
-        
+
+        if((request.request_type == 'K') || (auth_engine_exit)){
+            #ifdef DEBUG
+            printf("<AE%d>DEBUG# Exiting...\n", id);
+            #endif
+            break;
+        }
+
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is now processing a request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
@@ -243,6 +261,12 @@ int auth_engine_process(int id){
         printf("<AE%d>DEBUG# Auth engine finished processing request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\nIt's available again\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
     }
+
+    #ifdef DEBUG
+    printf("<AE%d>DEBUG# Auth engine exiting, freeing pipes...\n", id);
+    #endif
+    close(auth_engine_pipes[id][0]);
+    free(auth_engine_pipes[id]);
 
     return 0;
 }

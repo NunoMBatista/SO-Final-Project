@@ -65,10 +65,14 @@ pid_t extra_auth_pid = -1;
 
 pid_t parent_pid;
 pid_t arm_pid;
+pid_t monitor_pid;
 
 pthread_t receiver_t;
 pthread_t sender_t;
-int arm_threads_exit = 0;
+volatile sig_atomic_t arm_threads_exit = 0;
+
+pid_t *auth_engine_pids; // Array with the pids of the main auth engines (not the extra one)
+
 
 int main(int argc, char *argv[]){
     #ifdef DEBUG

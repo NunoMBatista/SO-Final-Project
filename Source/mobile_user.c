@@ -78,6 +78,7 @@ int main(int argc, char *argv[]){
     // If the lockfile was successfully locked, the system is not online
     if(lockf(lockfile, F_TLOCK, 0) == 0){ // The lock was successfully apllied
         printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+        unlink(MAIN_LOCKFILE); // Remove the lockfile
         return 1;
     }
 

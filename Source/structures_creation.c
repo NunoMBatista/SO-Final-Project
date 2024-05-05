@@ -37,14 +37,19 @@ int create_monitor_engine(){
     printf("<ME>DEBUG# Creating monitor engine...\n");
     #endif
  
-    pid_t pid = fork();
+    monitor_pid = fork();
 
-    if(pid == -1){
+    if(monitor_pid == -1){
         write_to_log("<ERROR CREATING MONITOR ENGINE>");
         return 1;
     }
 
-    if(pid == 0){
+    if(monitor_pid == 0){
+        monitor_pid = getpid();
+
+        signal(SIGTERM, signal_handler); // Only exit when receiving SIGTERM (called by system manager)
+        signal(SIGINT, SIG_IGN); // Ignore SIGINT
+
         // Child process
         char mes[PIPE_BUFFER_SIZE];
         sprintf(mes, "<ME> MONITOR ENGINE STARTED WITH PID %d", getpid());
@@ -243,15 +248,19 @@ int create_semaphores(){
 
 // Creates the ARM process, which will create the auth engines and the receiver/sender threads
 int create_auth_manager(){
-    pid_t pid = fork();
+    arm_pid = fork();
+    printf("\033[33mARM PID: %d\n\033[0m", arm_pid);
 
-    if(pid == -1){
+    if(arm_pid == -1){
         write_to_log("<ERROR CREATING AUTH MANAGER>");
         return 1;
     }
 
-    if(pid == 0){
+    if(arm_pid == 0){
         arm_pid = getpid();
+
+        signal(SIGTERM, signal_handler); // Only exit when receiving SIGTERM (called by system manager)
+        signal(SIGINT, SIG_IGN); // Ignore SIGINT
 
         // Child process
         #ifdef DEBUG
@@ -270,7 +279,6 @@ int create_auth_manager(){
         #ifdef DEBUG
         printf("<ARM>DEBUG# Creating receiver and sender threads...\n");
         #endif
-
         pthread_create(&receiver_t, NULL, receiver_thread, NULL);
         pthread_create(&sender_t, NULL, sender_thread, NULL);
 
@@ -278,15 +286,11 @@ int create_auth_manager(){
         printf("<ARM>DEBUG# Threads created successfully\n");
         #endif
 
-        // Do not end on SIGINT, only when the threads finish
-        printf("waiting threads to finish man\n");
         // Wait for threads to finish
         pthread_join(receiver_t, NULL);
         pthread_join(sender_t, NULL);
 
-        printf("\n\n\n\n\nARM THREADS FINISHED\n");
-
-        exit(0);
+        exit(2);
     }
 
     // Parent process
@@ -317,6 +321,7 @@ int create_message_queue(){
 
 // Creates the initial auth engines
 int create_auth_engines(){
+    auth_engine_pids = (pid_t*) malloc(sizeof(pid_t) * config->AUTH_SERVERS);
     auth_engine_pipes = (int**) malloc(sizeof(int*) * (config->AUTH_SERVERS + 1)); // +1 for the extra engine
     if(auth_engine_pipes == NULL){
         write_to_log("<ERROR CREATING AUTH ENGINE PIPES>");
@@ -336,28 +341,36 @@ int create_auth_engines(){
             return 1;
         }
 
-        pid_t engine_pid = fork();
-        if(engine_pid == -1){
+        auth_engine_pids[i] = fork();
+        //pid_t engine_pid = fork();
+        if(auth_engine_pids[i] == -1){
             write_to_log("<ERROR CREATING AUTH ENGINE>");
             return 1;
         }
 
-        if(engine_pid == 0){
+        if(auth_engine_pids[i] == 0){
+            signal(SIGINT, SIG_IGN);
+            signal(SIGTERM, kill_auth_engine);
+
+            arm_pid = getppid();
+
             // Auth engine
             close(auth_engine_pipes[i][1]); // Close write end of the pipe
 
             auth_engine_process(i);
-
-            write_to_log("PROCESS AUTHORIZATION_ENGINE CREATED");
-            exit(0);
+            
+            #ifdef DEBUG
+            printf("<AE%d>DEBUG# Auth engine with PID %d exited\n", i, getpid());
+            #endif
+            exit(0); // Exit after receiving SIGTERM and processing the last request
         }
         else{
             // Parent process (ARM)
+            write_to_log("PROCESS AUTHORIZATION_ENGINE CREATED");
             close(auth_engine_pipes[i][0]); // Close read end of the pipe
 
         }
     }
-
     return 0; 
 }
 

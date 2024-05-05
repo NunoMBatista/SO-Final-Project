@@ -5,7 +5,6 @@
 */
 #include <sys/shm.h>
 #include <semaphore.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +23,7 @@
 #include <sys/ipc.h>
 #include <ctype.h>
 #include <sys/msg.h>
+#include <fcntl.h>
 
 #include "system_functions.h"
 #include "global.h"
@@ -108,7 +108,6 @@ void monitor_engine_process(){
                     deactivate_user(current_user.user_id, i);
                 }
             }
-
         }
         
 
@@ -171,7 +170,7 @@ int deactivate_user(int user_id, int user_index){
     qmsg.type = user_id; 
     sprintf(qmsg.text, "DIE");
     
-    if(msgsnd(message_queue_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+    if(msgsnd(message_queue_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
         write_to_log("Error sending message to monitor engine");
         return -1;
     }
@@ -188,7 +187,7 @@ int notify_user(int user_id, int percentage){
     printf("<ME>DEBUG# Notifying user %d that he has spent %d%% of his plafond\n", user_id, percentage);
     #endif
     
-    if(msgsnd(message_queue_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+    if(msgsnd(message_queue_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
         write_to_log("Error sending message to monitor engine");
         return -1;
     }

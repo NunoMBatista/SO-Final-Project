@@ -66,6 +66,7 @@
     "system_functions.h": "c",
     "queue.h": "c",
     "stat.h": "c",
-    "select.h": "c"
+    "select.h": "c",
+    "msg.h": "c"
   }
 }

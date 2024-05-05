@@ -48,7 +48,7 @@ int initial_plafond; // Variable to save the initial plafond
 void *send_requests(void *args);
 void *message_receiver();
 void print_arguments(int initial_plafond, int requests_left, int delta_video, int delta_music, int delta_social, int data_ammount);
-void signal_handler(int signal);
+void signal_handler(int sig);
 void clean_up();
 
 
@@ -333,6 +333,11 @@ void *message_receiver(){
         #endif
         // Get messages with type equal to the user's pid
         if(msgrcv(user_msq_id, &qmsg, sizeof(QueueMessage), getpid(), 0) == -1){
+            if(errno == EIDRM){ // Message queue was removed
+                signal(SIGINT, SIG_IGN); // Ignore SIGINT signal (CTRL+C
+                printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+                break;
+            }
             perror("<ERROR> Could not receive message from message queue<\n");
             
             // Signal threads to exit 
@@ -365,6 +370,7 @@ void *message_receiver(){
             #ifdef DEBUG
             printf("<MESSAGE THREAD>DEBUG# Received exit message\n");
             #endif
+
             printf("Exiting...\n");
             break;
         }    
@@ -381,8 +387,6 @@ void *message_receiver(){
     #ifdef DEBUG
     printf("DEBUG# MESSAGE THREAD EXITING\n");
     #endif
-
-    printf("Waiting for the threads to end current requests...\n");
 
     return NULL;
 }
@@ -412,15 +416,19 @@ void clean_up(){
     #endif
 
     // Send a message to the message queue to signal the message thread to exit
-    #ifdef DEBUG
-    printf("DEBUG# Sending message to message queue\n");
-    #endif
     QueueMessage qmsg;
     qmsg.type = getpid();
     strcpy(qmsg.text, EXIT_MESSAGE);
-    if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
-        perror("<ERROR> Could not send message to message queue\n");
-        threads_should_exit = 1;
+    if((user_msq_id != -1) && (user_msq_id < 4096)){ // Check if the message queue id is valid
+        #ifdef DEBUG
+        printf("DEBUG# Sending message to message queue\n");
+        #endif
+        if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
+            if(errno != EIDRM){
+                perror("<ERROR> Could not send message to message queue\n");
+            }
+            threads_should_exit = 1;
+        }
     }
 
     // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
@@ -466,8 +474,10 @@ void clean_up(){
     #endif
 }
 
-void signal_handler(int signal){
-    if(signal == SIGINT){
+void signal_handler(int sig){
+    if(sig == SIGINT){
+        signal(SIGINT, SIG_IGN); // Ignore the signal
+
         printf("<SIGNAL> SIGINT received\n");
         
 

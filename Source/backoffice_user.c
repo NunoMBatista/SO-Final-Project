@@ -27,8 +27,8 @@
 
 #define BACKOFFICE_SEMAPHORE "backoffice_semaphore"
 #define MAIN_STRING "\n\t -> data_stats - Gets consumption statistics\n\t -> reset - Resets the statistics\n\t -> exit - Exits the backoffice user interface\n\n\n"
-#define BACKOFFICE_LOGO "\n\n\t  ____             _       ____   __  __ _          \n\t |  _ \\           | |     / __ \\ / _|/ _(_)         \n\t | |_) | __ _  ___| | __ | |  | | |_| |_ _  ___ ___ \n\t |  _ < / _` |/ __| |/ / | |  | |  _|  _| |/ __/ _ \\\n\t | |_) | (_| | (__|   <  | |__| | | | | | | (_|  __/\n\t |____/ \\__,_|\\___|_|\\_\\  \\____/|_| |_| |_|\\___\\___|\n"
-#define SHARED_MEMORY_LOGO "\t╔═╗┬ ┬┌─┐┬─┐┌─┐┌┬┐  ╔╦╗┌─┐┌┬┐┌─┐┬─┐┬ ┬\n\t╚═╗├─┤├─┤├┬┘├┤  ││  ║║║├┤ ││││ │├┬┘└┬┘\n\t╚═╝┴ ┴┴ ┴┴└─└─┘─┴┘  ╩ ╩└─┘┴ ┴└─┘┴└─ ┴ \n\n"
+#define BACKOFFICE_TITLE "\n\n\t  ____             _       ____   __  __ _          \n\t |  _ \\           | |     / __ \\ / _|/ _(_)         \n\t | |_) | __ _  ___| | __ | |  | | |_| |_ _  ___ ___ \n\t |  _ < / _` |/ __| |/ / | |  | |  _|  _| |/ __/ _ \\\n\t | |_) | (_| | (__|   <  | |__| | | | | | | (_|  __/\n\t |____/ \\__,_|\\___|_|\\_\\  \\____/|_| |_| |_|\\___\\___|\n"
+#define SHARED_MEMORY_TITLE "\t╔═╗┬ ┬┌─┐┬─┐┌─┐┌┬┐  ╔╦╗┌─┐┌┬┐┌─┐┬─┐┬ ┬\n\t╚═╗├─┤├─┤├┬┘├┤  ││  ║║║├┤ ││││ │├┬┘└┬┘\n\t╚═╝┴ ┴┴ ┴┴└─└─┘─┴┘  ╩ ╩└─┘┴ ┴└─┘┴└─ ┴ \n\n"
 
 /*
     Execution instructions:
@@ -111,11 +111,10 @@ int main(){
     while(1){
 
         printf("\033[1;32m");
-        printf(BACKOFFICE_LOGO);
+        printf(BACKOFFICE_TITLE);
 
         printf(MAIN_STRING);
         printf("\n$ ");
-        printf("\033[0m");
 
         if(fgets(command, 100, stdin) == NULL){
             perror("<ERROR> Could not read command\n");
@@ -127,9 +126,13 @@ int main(){
             command[strlen(command) - 1] = '\0';
         }
         
+        if(stop_receiver){
+            break;
+        }
 
         // clear the screen
         printf("\033[H\033[J");
+        printf("\033[0m");
 
         interpret_command(command);        
     }
@@ -151,6 +154,12 @@ void *receiver(){
 
     while(!stop_receiver){
         if(msgrcv(back_msq_id, &qmsg, sizeof(QueueMessage), 1, 0) == -1){
+            if(errno == EIDRM){ // Message queue was removed
+                signal(SIGINT, SIG_IGN); // Ignore SIGINT signal (CTRL+C
+                printf("\033[H\033[J\033[31m!!! THE SYSTEM IS OFFLINE !!!\n[ENTER] to continue\033[0m");
+                stop_receiver = 1;
+                exit(0); // Exit the backoffice user interface
+            }
             perror("<ERROR> Could not receive message\n");
             return NULL;
         }
@@ -162,6 +171,7 @@ void *receiver(){
         if(strcmp(token, "SHM") == 0){
             print_statistics(qmsg.text);
         }
+
     }
 
     return NULL;
@@ -180,7 +190,7 @@ void print_statistics(char *message){
     // printf("+---------------------------------------------+\n\n");
 
     printf("\033[1;36m");
-    printf(SHARED_MEMORY_LOGO);
+    printf(SHARED_MEMORY_TITLE);
 
     // Token 1 is the shared memory type key
     char *token = strtok(message, "#");
@@ -279,6 +289,7 @@ void signal_handler(int signal){
 }
 
 void clean_up(){
+    signal(SIGINT, SIG_IGN); // Ignore SIGINT signal (CTRL+C)
     // We don't need a mutex to access the flag because writing to a int is atomic
     stop_receiver = 1;
 
@@ -287,7 +298,7 @@ void clean_up(){
     strcpy(qmsg.text, "EXIT");
 
     // Send dummy message to unblock the receiver
-    if(msgsnd(back_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
+    if(msgsnd(back_msq_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
         perror("<ERROR> Could not send message to message queue\n");
     }
     

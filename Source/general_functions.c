@@ -105,13 +105,11 @@ void print_shared_memory(){
             int spent = shared_memory->users[i].spent_plafond;
             int remaining = initial - spent;
 
+            // Only print the top border if it's the first user
             if(already_printed == 0){
-                printf("\n%s═════════════════════════════════════════════════════════════════════════════%s\n", up_r, up_l);
+                printf("\n%s═════════════════════════════════════════════════════════════════════════════%s", up_r, up_l);
             }
-            else{
-                printf("\n");
-            }
-           
+            printf("\n");          
            
             if(already_printed == total_users - 1){
                 down_r = "╝";

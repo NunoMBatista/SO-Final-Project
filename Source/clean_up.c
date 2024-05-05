@@ -60,7 +60,6 @@ void clean_up(){
     int status;
     // Wait for ARM to exit
     waitpid(arm_pid, &status, 0);
-    printf("LEFT WITH STATUS %d\n", WEXITSTATUS(status));
 
 
     // Notify monitor engine to exit
@@ -72,7 +71,9 @@ void clean_up(){
     write_to_log("Waiting for monitor engine to finish");
     waitpid(monitor_pid, &status, 0);
 
-    // REMOVER MESSAGE_QUEUE_KEY FILE
+    // Send messages to every user that's still connected
+
+
 
     write_to_log("5G_AUTH_PLATFORM SIMULATOR CLOSING");
 
@@ -262,7 +263,6 @@ void kill_auth_engine(int signal){
     if(signal == SIGTERM){
         // Notify ARM threads to exit after the last work cycle
         auth_engine_exit = 1;     
-
     }
 }
 
@@ -276,7 +276,8 @@ void signal_handler(int signal){
         exit(0);
     }
     if(signal == SIGTERM){ 
-        if(getpid() == monitor_pid){
+        //if(getpid() == monitor_pid){
+        if((current_process == MONITOR_ENGINE)){
             #ifdef DEBUG
             printf("<ME>DEBUG# Received SIGTERM\n");
             #endif
@@ -287,12 +288,15 @@ void signal_handler(int signal){
 
             exit(0);
         }
-        if(getpid() == arm_pid){
+        if((current_process == ARM)){
             #ifdef DEBUG
             printf("<ARM>DEBUG# Received SIGTERM\n");
             #endif
             clean_up_arm();
             exit(0);
+        }
+        if((current_process == AUTH_ENGINE)){
+            auth_engine_exit = 1;         
         }
     }
 }

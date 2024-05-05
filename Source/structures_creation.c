@@ -350,7 +350,7 @@ int create_auth_engines(){
 
         if(auth_engine_pids[i] == 0){
             signal(SIGINT, SIG_IGN);
-            signal(SIGTERM, kill_auth_engine);
+            signal(SIGTERM, signal_handler);
 
             arm_pid = getppid();
             current_process = AUTH_ENGINE;

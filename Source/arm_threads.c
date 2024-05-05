@@ -150,7 +150,16 @@ void* sender_thread(){
            
             kill(extra_auth_pid, SIGTERM);
             extra_auth_engine = 0;
-            //sem_wait(engines_sem); // Remove the extra engine from the semaphore
+
+            // Send dummy message to the extra auth engine to unblock it
+            Request dummy;
+            dummy.user_id = -1;
+            dummy.request_type = 'K';
+            write(auth_engine_pipes[config->AUTH_SERVERS][1], &dummy, sizeof(Request));
+
+            waitpid(extra_auth_pid, NULL, 0); // Wait for the extra auth engine to terminate
+
+            write_to_log("EXTRA AUTHORIZATION ENGINE DEACTIVATED");
         }
 
         pthread_mutex_unlock(&queues_mutex);

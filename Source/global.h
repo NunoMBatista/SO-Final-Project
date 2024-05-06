@@ -25,6 +25,10 @@
 #define USER_PIPE "/tmp/USER_PIPE"
 #define BACK_PIPE "/tmp/BACK_PIPE"
 
+#ifndef F_TLOCK
+#define F_TLOCK 2
+#endif
+
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
 #include <semaphore.h>

@@ -6,6 +6,14 @@
 #ifndef SYSTEM_MANAGER_STARTUP_H
 #define SYSTEM_MANAGER_STARTUP_H
 
+/*
+  To Implement:
+
+  Time limit on queue requests 
+
+*/
+
+
 // --> main function in system_manager.c <--
 
 // Initialization (system_initialization.c)
@@ -54,5 +62,6 @@ void print_progress(int current, int max);
 void print_shared_memory();
 void sleep_milliseconds(int milliseconds);
 void print_queues(int color);
+unsigned long long get_time_millis();
 
 #endif

@@ -256,7 +256,7 @@ void kill_auth_engine(int signal){
 // Signal handler for SIGINT
 void signal_handler(int signal){
     if(signal == SIGINT){
-        if(getpid() == parent_pid){
+        if(current_process == SYSMAN){
             write_to_log("SIGNAL SIGINT RECEIVED");
             clean_up();
         }
@@ -264,7 +264,7 @@ void signal_handler(int signal){
     }
     if(signal == SIGTERM){ 
         //if(getpid() == monitor_pid){
-        if((current_process == MONITOR_ENGINE)){
+        if(current_process == MONITOR_ENGINE){
             #ifdef DEBUG
             printf("<ME>DEBUG# Received SIGTERM\n");
             #endif
@@ -275,14 +275,14 @@ void signal_handler(int signal){
 
             exit(0);
         }
-        if((current_process == ARM)){
+        if(current_process == ARM){
             #ifdef DEBUG
             printf("<ARM>DEBUG# Received SIGTERM\n");
             #endif
             clean_up_arm();
             exit(0);
         }
-        if((current_process == AUTH_ENGINE)){
+        if(current_process == AUTH_ENGINE){
             auth_engine_exit = 1;         
         }
     }

@@ -26,7 +26,7 @@
 #include "global.h"
 
 #define BACKOFFICE_SEMAPHORE "backoffice_semaphore"
-#define MAIN_STRING "\n\t -> data_stats - Gets consumption statistics\n\t -> reset - Resets the statistics\n\t -> exit - Exits the backoffice user interface\n\n\n"
+#define MAIN_STRING "\n\t    -> data_stats - Gets consumption statistics\n\t    -> reset - Resets the statistics\n\t    -> exit - Exits the backoffice user interface\n\n\n"
 #define BACKOFFICE_TITLE "\n\n\t  ____             _       ____   __  __ _          \n\t |  _ \\           | |     / __ \\ / _|/ _(_)         \n\t | |_) | __ _  ___| | __ | |  | | |_| |_ _  ___ ___ \n\t |  _ < / _` |/ __| |/ / | |  | |  _|  _| |/ __/ _ \\\n\t | |_) | (_| | (__|   <  | |__| | | | | | | (_|  __/\n\t |____/ \\__,_|\\___|_|\\_\\  \\____/|_| |_| |_|\\___\\___|\n"
 #define SHARED_MEMORY_TITLE "\t╔═╗┬ ┬┌─┐┬─┐┌─┐┌┬┐  ╔╦╗┌─┐┌┬┐┌─┐┬─┐┬ ┬\n\t╚═╗├─┤├─┤├┬┘├┤  ││  ║║║├┤ ││││ │├┬┘└┬┘\n\t╚═╝┴ ┴┴ ┴┴└─└─┘─┴┘  ╩ ╩└─┘┴ ┴└─┘┴└─ ┴ \n\n"
 
@@ -177,6 +177,70 @@ void *receiver(){
     return NULL;
 }
 
+
+void interpret_command(char *command){
+    char message[PIPE_BUFFER_SIZE] = "1#";
+
+    if((strcmp(command, "data_stats") == 0) || strcmp(command, "reset") == 0){
+        strcat(message, command);
+        printf("\033[32mSending request... \t<%s>\033[0m", message);
+        send_message(message);
+        return;
+    }
+
+    if(strcmp(command, "exit") == 0){
+        printf("Exiting backoffice user interface...\n");
+        clean_up();
+        exit(0);
+    }
+    else if(strcmp(command, "") == 0){
+        return;
+    }
+    else{
+        printf("\033[31mInvalid command\033[0m");
+    }
+
+}
+
+void send_message(char *message){
+    if(write(fd_back_pipe, message, strlen(message) + 1) < 0){
+        perror("<ERROR> Could not write to back pipe\n");
+        return;
+    }
+}
+    
+void signal_handler(int signal){
+    if(signal == SIGINT){
+        printf("\tExiting backoffice user interface\n");
+        clean_up();
+        exit(0);
+    }
+}
+
+void clean_up(){
+    signal(SIGINT, SIG_IGN); // Ignore SIGINT signal (CTRL+C)
+    // We don't need a mutex to access the flag because writing to a int is atomic
+    stop_receiver = 1;
+
+    QueueMessage qmsg;
+    qmsg.type = 1;
+    strcpy(qmsg.text, "EXIT");
+
+    // Send dummy message to unblock the receiver
+    if(msgsnd(back_msq_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
+        perror("<ERROR> Could not send message to message queue\n");
+    }
+    
+    // Wait for the receiver thread to finish
+    pthread_join(receiver_thread, NULL);
+    
+    // Close the back pipe
+    close(fd_back_pipe);
+
+    // Remove the lockfile
+    unlink(BACKOFFICE_LOCKFILE);
+}               
+
 void print_statistics(char *message){
     int spent_video, spent_music, spent_social;
     int reqs_video, reqs_music, reqs_social;
@@ -248,66 +312,3 @@ void print_statistics(char *message){
     
     printf("\n\033[1;34m[ENTER] to continue\n\033[0m");   
 }
-
-void interpret_command(char *command){
-    char message[PIPE_BUFFER_SIZE] = "1#";
-
-    if((strcmp(command, "data_stats") == 0) || strcmp(command, "reset") == 0){
-        strcat(message, command);
-        printf("\033[32mSending request... \t<%s>\033[0m", message);
-        send_message(message);
-        return;
-    }
-
-    if(strcmp(command, "exit") == 0){
-        printf("Exiting backoffice user interface...\n");
-        clean_up();
-        exit(0);
-    }
-    else if(strcmp(command, "") == 0){
-        return;
-    }
-    else{
-        printf("\033[31mInvalid command\033[0m");
-    }
-
-}
-
-void send_message(char *message){
-    if(write(fd_back_pipe, message, strlen(message) + 1) < 0){
-        perror("<ERROR> Could not write to back pipe\n");
-        return;
-    }
-}
-    
-void signal_handler(int signal){
-    if(signal == SIGINT){
-        printf("\tExiting backoffice user interface\n");
-        clean_up();
-        exit(0);
-    }
-}
-
-void clean_up(){
-    signal(SIGINT, SIG_IGN); // Ignore SIGINT signal (CTRL+C)
-    // We don't need a mutex to access the flag because writing to a int is atomic
-    stop_receiver = 1;
-
-    QueueMessage qmsg;
-    qmsg.type = 1;
-    strcpy(qmsg.text, "EXIT");
-
-    // Send dummy message to unblock the receiver
-    if(msgsnd(back_msq_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
-        perror("<ERROR> Could not send message to message queue\n");
-    }
-    
-    // Wait for the receiver thread to finish
-    pthread_join(receiver_thread, NULL);
-    
-    // Close the back pipe
-    close(fd_back_pipe);
-
-    // Remove the lockfile
-    unlink(BACKOFFICE_LOCKFILE);
-}               

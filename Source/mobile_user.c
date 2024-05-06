@@ -51,7 +51,6 @@ void print_arguments(int initial_plafond, int requests_left, int delta_video, in
 void signal_handler(int sig);
 void clean_up();
 
-
 pthread_t request_threads[3];
 //pthread_mutex_t gen_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t exit_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -64,6 +63,7 @@ int started_threads = 0; // This value has to be 4 to start the threads (3 sende
 int requests_left;
 
 int threads_should_exit = 0; // Flag to signal the threads to exit
+int system_online = 1; // Flag to signal if the system is online
 
 int fd_user_pipe;
 int user_msq_id;
@@ -78,6 +78,7 @@ int main(int argc, char *argv[]){
     // If the lockfile was successfully locked, the system is not online
     if(lockf(lockfile, F_TLOCK, 0) == 0){ // The lock was successfully apllied
         printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+        system_online = 0;
         unlink(MAIN_LOCKFILE); // Remove the lockfile
         return 1;
     }
@@ -144,7 +145,7 @@ int main(int argc, char *argv[]){
     if(send_initial_request(initial_plafond) != 0){
         perror("<ERROR> Could not register user\n");
         close(fd_user_pipe); // Close the pipe
-        exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
+        return 1; // Exit the program, the only thing that needs to be cleaned up is the pipe
     }
 
     #ifdef DEBUG
@@ -336,6 +337,7 @@ void *message_receiver(){
             if(errno == EIDRM){ // Message queue was removed
                 signal(SIGINT, SIG_IGN); // Ignore SIGINT signal (CTRL+C
                 printf("\033[31m!!! THE SYSTEM IS OFFLINE !!!\n\033[0m");
+                system_online = 0;
                 break;
             }
             perror("<ERROR> Could not receive message from message queue<\n");
@@ -370,8 +372,6 @@ void *message_receiver(){
             #ifdef DEBUG
             printf("<MESSAGE THREAD>DEBUG# Received exit message\n");
             #endif
-
-            printf("Exiting...\n");
             break;
         }    
     }
@@ -419,7 +419,7 @@ void clean_up(){
     QueueMessage qmsg;
     qmsg.type = getpid();
     strcpy(qmsg.text, EXIT_MESSAGE);
-    if((user_msq_id != -1) && (user_msq_id < 4096)){ // Check if the message queue id is valid
+    if(system_online == 1){
         #ifdef DEBUG
         printf("DEBUG# Sending message to message queue\n");
         #endif
@@ -438,9 +438,8 @@ void clean_up(){
     write(fd_user_pipe, kill_message, PIPE_BUFFER_SIZE);
 
     // Wait for the threads to exit
-    #ifdef DEBUG
-    printf("DEBUG# Waiting for threads to exit\n");
-    #endif
+
+    printf("Waiting for threads to exit...\n");
     for(int i = 0; i < 3; i++){
         pthread_join(request_threads[i], NULL);
     }
@@ -469,9 +468,7 @@ void clean_up(){
     // Destroy the cond var
     pthread_cond_destroy(&exit_signal);
 
-    #ifdef DEBUG
-    printf("DEBUG# Exiting\n");
-    #endif
+    printf("Exiting...\n");
 }
 
 void signal_handler(int sig){

@@ -56,12 +56,10 @@ void* sender_thread(){
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Both queues are empty, waiting for notification\n");
             #endif
-
             pthread_cond_wait(&sender_cond, &queues_mutex);
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Sender thread notified\n");
             #endif
-
 
             // Break out of the inner while loop
             if(arm_threads_exit){
@@ -77,10 +75,9 @@ void* sender_thread(){
         }
 
         // Once notified, the sender will read the queues untill they are empty
-        //char *message;
+        // The other_queue is only read when the video_queue is empty        
         Request message; 
-
-        if(!is_empty(video_queue)){
+        if(!is_empty(video_queue)){ 
             message = pop(video_queue);
             #ifdef DEBUG
             printf("<SENDER>DEBUG# Got [%d#%c#%d] from the video queue\n", message.user_id, message.request_type, message.data_amount);
@@ -96,23 +93,23 @@ void* sender_thread(){
         // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
         pthread_mutex_unlock(&queues_mutex);
 
-        #ifdef DEBUG
+        //#ifdef DEBUG
         int sem_value;
         sem_getvalue(engines_sem, &sem_value);
         if(sem_value == 0){
             printf("<SENDER>DEBUG# No auth engines available, waiting...\n");
         }
         else{
-            printf("<SENDER>DEBUG# Engines semaphore value: %d\n", sem_value);
+            printf("<SENDER>DEBUG# There are %d available engines\n", sem_value);
         }
-        #endif
-        
+        //#endif
         // Wait until an auth engine is available
         sem_wait(engines_sem);
+        
         #ifdef DEBUG
         printf("<SENDER>DEBUG# Searching for an available auth engine...\n");
         #endif
-        // Check which auth engine is available
+        // Fetch a free auth engine
         sem_wait(aux_shm_sem);
         // If the extra auth engine is active, the for loop is increased by 1
         for(int id = 0; id < config->AUTH_SERVERS + extra_auth_engine; id++){
@@ -150,6 +147,7 @@ void* sender_thread(){
            
             kill(extra_auth_pid, SIGTERM);
             extra_auth_engine = 0;
+            sem_wait(engines_sem); // 
 
             // Send dummy message to the extra auth engine to unblock it
             Request dummy;
@@ -322,7 +320,13 @@ void parse_and_send(char *message){
     Request request;
     request.data_amount = 0; 
     request.initial_plafond = 0;
-    request.start_time = -1; // IMPLEMENT LATER
+
+    request.start_time = get_time_millis();
+
+    printf("\n\n\n\n\nREQUEST START TIME: %lld\n\n\n\n\n\n", request.start_time);
+
+    printf("\n\n\n%lld\n\n\n", get_time_millis() - request.start_time);
+
     char *token = strtok(message, "#");
     if(token == NULL){
         write_to_log("<ERROR PARSING MESSAGE>");

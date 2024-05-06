@@ -11,14 +11,8 @@ Perguntar:
 - Só um mutex para as queues?
 // SIM 
 
-- Quando o tempo limite de um pedido é excedido, este só é discartado após ser lido pelo sender?
+- Quando o tempo limite
+ de um pedido é excedido, este só é discartado após ser lido pelo sender?
 
-- Há problema com nested shared memory?
-// NÃO
 
 - É suposto ignorar SIGINT durante o setup inteiro?
-
-- Podemos usar o nome de um pipe para criar uma key para a msgqueue
-
-- é suposto as 3 threads do mobile user começarem exatamente ao mesmo tempo?
-// NÃO É PRECISO

@@ -20,7 +20,7 @@ typedef struct{
     char request_type;
     int data_amount; // Data amount requested (if applicable)
     int initial_plafond; // Initial plafond of the user (if applicable)
-    int start_time; // Time when the request was made
+    unsigned long long start_time; // Time when the request was made
 } Request;
 
 typedef struct Node {

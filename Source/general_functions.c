@@ -208,3 +208,9 @@ void print_queues(int color){
     pthread_mutex_unlock(&queues_mutex);
     sem_post(log_semaphore); // Release stdout
 }
+
+unsigned long long get_time_millis(){
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (unsigned long long)(tv.tv_sec) * 1000 + (unsigned long long)(tv.tv_usec) / 1000;
+}

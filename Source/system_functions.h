@@ -13,7 +13,6 @@
 
 */
 
-
 // --> main function in system_manager.c <--
 
 // Initialization (system_initialization.c)
@@ -54,7 +53,6 @@ void clean_up();
 void signal_handler(int signal);
 void notify_arm_threads();
 void kill_auth_engine(int signal);
-void send_users_exit_message();
 
 // MISC (general_functions.c)
 void write_to_log(char *message);

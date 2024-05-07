@@ -89,9 +89,25 @@ void* sender_thread(){
             printf("<SENDER>DEBUG# Got [%d#%c#%d#%d] from the other queue\n", message.user_id, message.request_type, message.data_amount, message.initial_plafond);
             #endif
         }
-
         // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
         pthread_mutex_unlock(&queues_mutex);
+
+        unsigned long long time_taken = get_time_millis() - message.start_time;
+        char exceeded_message[PIPE_BUFFER_SIZE];
+        if(message.request_type == 'V'){
+            if(time_taken > (unsigned long long)config->MAX_VIDEO_WAIT){
+                sprintf(exceeded_message, "VIDEO REQUEST EXCEEDED TIME LIMIT, DISCARDED [%d#%c#%d]", message.user_id, message.request_type, message.data_amount);
+                write_to_log(exceeded_message);
+                continue;
+            }
+        }
+        else{
+            if(time_taken > (unsigned long long)config->MAX_OTHERS_WAIT){
+                sprintf(exceeded_message, "VIDEO REQUEST EXCEEDED TIME LIMIT, DISCARDED [%d#%c#%d]", message.user_id, message.request_type, message.data_amount);
+                write_to_log("OTHER QUEUE REQUEST EXCEEDED TIME LIMIT, DISCARDED");
+                continue;
+            }
+        }
 
         //#ifdef DEBUG
         int sem_value;
@@ -145,16 +161,19 @@ void* sender_thread(){
             printf("<SENDER>DEBUG# Both queues are at 50%% capacity, deactivating extra auth engine\n");
             #endif
            
-            kill(extra_auth_pid, SIGTERM);
             extra_auth_engine = 0;
-            sem_wait(engines_sem); // 
+            sem_wait(engines_sem);
 
             // Send dummy message to the extra auth engine to unblock it
             Request dummy;
             dummy.user_id = -1;
-            dummy.request_type = 'K';
+            dummy.request_type = 'K'; 
             write(auth_engine_pipes[config->AUTH_SERVERS][1], &dummy, sizeof(Request));
+            kill(extra_auth_pid, SIGTERM);
 
+            #ifdef DEBUG
+            printf("<SENDER>DEBUG# Dummy message sent to extra auth engine, waiting for it to \n");
+            #endif
             waitpid(extra_auth_pid, NULL, 0); // Wait for the extra auth engine to terminate
 
             write_to_log("EXTRA AUTHORIZATION ENGINE DEACTIVATED");
@@ -267,23 +286,30 @@ void deploy_extra_engine(){
 
     extra_auth_pid = fork();
     if(extra_auth_pid == 0){
-        // Child process (extra auth engine)
+        // Set process name
+        memset(process_name, 0, process_name_size);
+        char process_str[40];
+        sprintf(process_str, "AUTH_ENGINE%d", config->AUTH_SERVERS);
+        strcpy(process_name, process_str);
+        
+        current_process = AUTH_ENGINE;
         
         // Signal handling
         signal(SIGINT, SIG_IGN);
-        signal(SIGTERM, kill_auth_engine);
+        signal(SIGTERM, signal_handler);
 
         close(auth_engine_pipes[config->AUTH_SERVERS][1]); // Close write end of the pipe
 
         // Start the extra auth engine process with the last ID available
         auth_engine_process(config->AUTH_SERVERS);
-        write_to_log("EXTRA AUTHORIZATION ENGINE DEPLOYED");
-        exit(0);
+        //exit(0);
     }
     else{
         // Parent process (ARM)
         close(auth_engine_pipes[config->AUTH_SERVERS][0]); // Close read end of the pipe
 
+        write_to_log("EXTRA AUTHORIZATION ENGINE DEPLOYED");
+        
         // Activate the extra auth engine flag 
         extra_auth_engine = 1;
     }
@@ -301,9 +327,9 @@ void parse_and_send(char *message){
         REMOVE USER:
             PID#KILL - Remove user from the system
 
-        VIDEO QUEUE: 
+        VIDEO QUEUE:
             PID#VIDEO#INT - Video request
-   
+
         OTHER QUEUE: 
             PID#INT - Initial request
             PID#[SOCIAL|MUSIC]#INT - Social or music request
@@ -321,11 +347,8 @@ void parse_and_send(char *message){
     request.data_amount = 0; 
     request.initial_plafond = 0;
 
+    // Register time 
     request.start_time = get_time_millis();
-
-    printf("\n\n\n\n\nREQUEST START TIME: %lld\n\n\n\n\n\n", request.start_time);
-
-    printf("\n\n\n%lld\n\n\n", get_time_millis() - request.start_time);
 
     char *token = strtok(message, "#");
     if(token == NULL){
@@ -406,7 +429,7 @@ void parse_and_send(char *message){
         }
     }
 
-
+    
     char error_message[PIPE_BUFFER_SIZE + 50];
     pthread_mutex_lock(&queues_mutex);
 

@@ -31,6 +31,7 @@
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
+#include <stdio.h>
 #include <semaphore.h>
 #include <pthread.h>   
 #include <signal.h>
@@ -69,7 +70,7 @@ typedef struct{
     int spent_video;
     int spent_music;
     int spent_social;
-    
+
     int reqs_video;
     int reqs_music;
     int reqs_social;
@@ -80,6 +81,8 @@ typedef struct{
 typedef struct{
     pthread_mutex_t monitor_engine_mutex;
     pthread_cond_t monitor_engine_cond;
+
+    pthread_mutex_t log_mutex;
 
     int *active_auth_engines;
 } AuxiliaryShm;
@@ -93,7 +96,6 @@ typedef struct{
     int MAX_OTHERS_WAIT; // Max time that a non-video request can wait before being processed
 } Config;
 
-
 // External declaration to be used in other files
 extern Config *config;
 
@@ -103,16 +105,16 @@ extern int shm_id; // General shared memory id
 extern int shm_id_users; // Shared memory id for users
 extern sem_t *shared_memory_sem;
 
+
 extern AuxiliaryShm *auxiliary_shm;
 extern int aux_shm_id;
 extern int engines_shm_id;
 extern sem_t *engines_sem; // Semaphore with value config->AUTH_SERVERS to control the number of active auth engines
 extern sem_t *aux_shm_sem; // Binary semaphore to control access to auxiliary shared memory
 
-extern int **auth_engine_pipes; // Array of pipes fd for the sender to communicate with the auth engines
-
 extern sem_t* log_semaphore;
 
+extern int **auth_engine_pipes; // Array of pipes fd for the sender to communicate with the auth engines
 extern int fd_user_pipe;
 extern int fd_back_pipe;
 
@@ -141,4 +143,11 @@ extern int auth_engine_index; // Index of the current auth engine (changes betwe
 extern pthread_t periodic_notifications_t;
 
 extern enum process_type current_process;
+
+extern int process_name_size; 
+extern char* process_name;
+
+extern FILE* log_file;
+
+extern int log_mutex_initialized;
 #endif

@@ -67,6 +67,7 @@
     "queue.h": "c",
     "stat.h": "c",
     "select.h": "c",
-    "msg.h": "c"
+    "msg.h": "c",
+    "time.h": "c"
   }
 }

@@ -44,6 +44,10 @@ int create_monitor_engine(){
     }
 
     if(monitor_pid == 0){
+        // Set process name
+        memset(process_name, 0, process_name_size);
+        strcpy(process_name, "MONITOR_ENGINE");
+
         monitor_pid = getpid();
         current_process = MONITOR_ENGINE;
 
@@ -183,7 +187,14 @@ int create_shared_memory(){
         write_to_log("<ERROR INITIALIZING MONITOR ENGINE CONDITION VARIABLE>");
         return 1;
     }
-    
+
+    pthread_mutexattr_t log_mutex_attr;
+    pthread_mutexattr_init(&log_mutex_attr);
+    pthread_mutexattr_setpshared(&log_mutex_attr, PTHREAD_PROCESS_SHARED);
+    if(pthread_mutex_init(&auxiliary_shm->log_mutex, &log_mutex_attr) != 0){
+        write_to_log("<ERROR INITIALIZING LOG MUTEX>");
+        return 1;
+    }
 
     #ifdef DEBUG
     printf("DEBUG# Shared memory created successfully\n");
@@ -215,10 +226,20 @@ int create_semaphores(){
     sem_close(shared_memory_sem);
     sem_unlink(SHARED_MEMORY_SEMAPHORE);
 
+    // #ifdef DEBUG
+    // printf("DEBUG# Creating log mutex...\n");
+    // #endif
+    // pthread_mutexattr_t log_mutex_attr;
+    // pthread_mutexattr_init(&log_mutex_attr);
+    // pthread_mutexattr_setpshared(&log_mutex_attr, PTHREAD_PROCESS_SHARED);
+    // if(pthread_mutex_init(&auxiliary_shm->log_mutex, &log_mutex_attr) != 0){
+    //     write_to_log("<ERROR INITIALIZING LOG MUTEX>");
+    //     return 1;
+    // }
+
     #ifdef DEBUG
     printf("DEBUG# Creating log semaphore...\n");
     #endif
-
     // Create log semaphore
     log_semaphore = sem_open(LOG_SEMAPHORE, O_CREAT | O_EXCL, 0777, 1);
     if(log_semaphore == SEM_FAILED){
@@ -256,6 +277,10 @@ int create_auth_manager(){
     }
 
     if(arm_pid == 0){
+        // Set process name
+        memset(process_name, 0, process_name_size);
+        strcpy(process_name, "ARM");
+        
         arm_pid = getpid();
         current_process = ARM;
 
@@ -351,6 +376,12 @@ int create_auth_engines(){
         if(auth_engine_pids[i] == 0){
             signal(SIGINT, SIG_IGN);
             signal(SIGTERM, signal_handler);
+
+            // Set process name
+            memset(process_name, 0, process_name_size);
+            char process_str[40];
+            sprintf(process_str, "AUTH_ENGINE%d", i);
+            strcpy(process_name, process_str);
 
             arm_pid = getppid();
             current_process = AUTH_ENGINE;

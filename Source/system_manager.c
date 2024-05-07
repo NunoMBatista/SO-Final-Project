@@ -46,6 +46,9 @@ int engines_shm_id;
 sem_t *engines_sem;
 sem_t *aux_shm_sem;
 
+// Mutex for the log file
+pthread_mutex_t log_mutex;
+
 // Pipe file descriptors
 int fd_user_pipe; 
 int fd_back_pipe;
@@ -71,11 +74,24 @@ pthread_t receiver_t;
 pthread_t sender_t;
 volatile sig_atomic_t arm_threads_exit = 0;
 
+int process_name_size; 
+char* process_name;
+
 pid_t *auth_engine_pids; // Array with the pids of the main auth engines (not the extra one)
 
 enum process_type current_process;
 
+FILE* log_file;
+
+int log_mutex_initialized = 0;
+
 int main(int argc, char *argv[]){
+    // Set this process name
+    process_name_size = strlen(argv[0]);
+    process_name = argv[0];
+    memset(process_name, 0, process_name_size);
+    strcpy(process_name, "SYSTEM_MANAGER");
+
     #ifdef DEBUG
     printf("<SYS MAN> Is process number %d\n", getpid());
     #endif
@@ -101,6 +117,12 @@ int main(int argc, char *argv[]){
     current_process = SYSMAN;
 
     char *config_file = argv[1];
+
+    log_file = fopen("log.txt", "a");
+    if(log_file == NULL){
+        perror("PROBLEM OPENING LOG FILE\n");
+        return 1;
+    }
 
     initialize_system(config_file);
 

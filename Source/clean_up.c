@@ -56,10 +56,6 @@ void clean_up(){
     write_to_log("Waiting for monitor engine to finish");
     waitpid(monitor_pid, &status, 0);
 
-    // Send messages to every user that's still connected
-
-
-
     write_to_log("5G_AUTH_PLATFORM SIMULATOR CLOSING");
 
     // Kill extra auth engine if it's active   
@@ -70,6 +66,10 @@ void clean_up(){
     // Destroy mutexes and condition variables
     pthread_mutex_destroy(&queues_mutex);
     pthread_cond_destroy(&sender_cond);
+
+    // pthread_mutex_destroy(&auxiliary_shm->monitor_engine_mutex);    
+    // pthread_cond_destroy(&auxiliary_shm->monitor_engine_cond);
+    // pthread_mutex_destroy(&auxiliary_shm->log_mutex);
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Detatching and deleting the main shared memory\n");
@@ -160,6 +160,9 @@ void clean_up(){
     // Unlink lockfiles
     unlink(MAIN_LOCKFILE);
     unlink(BACKOFFICE_LOCKFILE);
+
+    // Close log file
+    fclose(log_file);
 }
 
 // Cleans up the ARM process and it's structures
@@ -241,18 +244,6 @@ void notify_arm_threads(){
     }
 }
 
-// Ask a given auth engine to exit
-void kill_auth_engine(int signal){
-    #ifdef DEBUG
-    printf("<AE%d>DEBUG# Received signal %d\n", auth_engine_index, signal);
-    #endif
-
-    if(signal == SIGTERM){
-        // Notify ARM threads to exit after the last work cycle
-        auth_engine_exit = 1;     
-    }
-}
-
 // Signal handler for SIGINT
 void signal_handler(int signal){
     if(signal == SIGINT){
@@ -283,7 +274,7 @@ void signal_handler(int signal){
             exit(0);
         }
         if(current_process == AUTH_ENGINE){
-            auth_engine_exit = 1;         
+            auth_engine_exit = 1;
         }
     }
 }

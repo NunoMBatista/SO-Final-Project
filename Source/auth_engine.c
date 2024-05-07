@@ -49,12 +49,12 @@ int auth_engine_process(int id){
     sem_post(engines_sem);
 
     while(1){
-        if(auth_engine_exit){
-            #ifdef DEBUG
-            printf("<AE%d>DEBUG# Exiting...\n", id);
-            #endif
-            break;
-        }
+        // if(auth_engine_exit){
+        //     #ifdef DEBUG
+        //     printf("<AE%d>DEBUG# Exiting...\n", id);
+        //     #endif
+        //     break;
+        // }
 
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is ready to receive a request\n", id);
@@ -65,10 +65,14 @@ int auth_engine_process(int id){
         // Wait for message
         read(auth_engine_pipes[id][0], &request, sizeof(Request));
 
+        sem_wait(shared_memory_sem); // Lock shared memory
+
         if((request.request_type == 'K') || (auth_engine_exit)){
             #ifdef DEBUG
             printf("<AE%d>DEBUG# Exiting...\n", id);
-            #endif
+            #endif     
+
+            sem_post(shared_memory_sem);       
             break;
         }
 
@@ -93,22 +97,19 @@ int auth_engine_process(int id){
         #ifdef DEBUG
         printf("\033[33m<AE%d>DEBUG# Waiting for shared memory semaphore\n\033[0m", id);
         #endif
-        sem_wait(shared_memory_sem); // Lock shared memory
+        //sem_wait(shared_memory_sem); // Lock shared memory
         #ifdef DEBUG
         printf("\033[31m<AE%d>DEBUG# Locked shared memory\n\033[0m", id);
         #endif
-
-        int user_index = get_user_index(request.user_id);
         
+        int user_index = get_user_index(request.user_id);
+
         // If the user is not asking to be added and does not exist
         if((request.request_type != 'I') && (user_index == -1)){
-            // THE USER DOES NOT EXIST
-            
-            
+            // THE USER DOES NOT EXIST   
             //response_applicable = 1; 
             
             type = -1; // Skip if-else block
-
             //sprintf(response, "DIE");
 
             sprintf(log_message_type, "INVALID REQUEST");
@@ -122,9 +123,10 @@ int auth_engine_process(int id){
             
             // There's a need to tell the user if the request was accepted or rejected  
             response_applicable = 1; 
+        printf("\n\n\nIN I-AUTH_SHOULD_EXIT VALUE: %d REQUEST TYPE: %c\n", auth_engine_exit, request.request_type);
 
             return_code = add_mobile_user(request.user_id, request.initial_plafond);
-            if(return_code  == 0){
+            if(return_code == 0){
                 sprintf(response, "ACCEPTED");
                 //sprintf(log_message, "AUTHORIZATION_ENGINE %d: USER REGISTRATION REQUEST (ID = %d) PROCESSING COMPLETED -> USER ADDED WITH INITIAL PLAFFOND OF %d", id, request.user_id, request.initial_plafond);
                 sprintf(log_process_feedback, "USER ADDED WITH INITIAL PLAFOND OF %d", request.initial_plafond);
@@ -221,6 +223,7 @@ int auth_engine_process(int id){
         #ifdef DEBUG
         printf("\033[32m<AE%d>DEBUG# Unlocking shared memory\n\033[0m", id);
         #endif
+
         sem_post(shared_memory_sem); // Unlock shared memory 
     
         // NOTIFY MONITOR ENGINE
@@ -248,11 +251,14 @@ int auth_engine_process(int id){
             #endif
         }
 
-
         // Mark the auth engine as available
         sem_wait(aux_shm_sem);
         auxiliary_shm->active_auth_engines[id] = 0;
         sem_post(aux_shm_sem);
+
+        if(auth_engine_exit){
+            break;
+        }
 
         // "Notify" the sender thread that an auth engine is available
         sem_post(engines_sem);
@@ -262,13 +268,24 @@ int auth_engine_process(int id){
         #endif
     }
 
+    // Mark the auth engine as unavailable
+    sem_wait(aux_shm_sem);
+    auxiliary_shm->active_auth_engines[id] = 1;
+    sem_post(aux_shm_sem);
+
+
     #ifdef DEBUG
     printf("<AE%d>DEBUG# Auth engine exiting, freeing pipes...\n", id);
     #endif
     close(auth_engine_pipes[id][0]);
     free(auth_engine_pipes[id]);
 
-    return 0;
+    // Write exit message to log
+    char log_msg[PIPE_BUFFER_SIZE];
+    sprintf(log_msg, "AUTH ENGINE %d EXITING", auth_engine_index);
+    write_to_log(log_msg);
+
+    exit(0);
 }
 
 // Adds a mobile user to the shared memory, called by the auth engines
@@ -311,7 +328,9 @@ int add_mobile_user(int user_id, int plafond){
 
     char message[100];
     sprintf(message, "USER %d ADDED TO SHARED MEMORY", user_id);
+
     write_to_log(message);
+
     return 0;
 }
 

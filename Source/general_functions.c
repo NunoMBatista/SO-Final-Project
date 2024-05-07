@@ -32,14 +32,12 @@
 // Writes a message to the log file
 void write_to_log(char *message){
     // Wait if there is any process using the log file
-    sem_wait(log_semaphore); 
-
-    // Open log file in append mode
-    FILE* log_file = fopen("log.txt", "a");
-    if(log_file == NULL){
-        printf("<ERROR OPENING LOG FILE>\n");
-        sem_post(log_semaphore);
-        return;
+    #ifdef DEBUG
+    printf("<LOG>DEBUG# Locking log mutex\n");
+    #endif
+    //sem_wait(log_semaphore); 
+    if(log_mutex_initialized){
+        pthread_mutex_lock(&auxiliary_shm->log_mutex);
     }
 
     time_t current_time;
@@ -73,15 +71,20 @@ void write_to_log(char *message){
             break;
     }
 
+
     printf("[%s] %s\n", time_str, message);
     printf("\033[0m");
 
     // Print message to log file
     fprintf(log_file, "[%s] %s\n", time_str, message);
-    fclose(log_file);
 
     // Unlock the log semaphore
-    sem_post(log_semaphore);
+    #ifdef DEBUG
+    printf("<LOG>DEBUG# Unlocking lock mutex\n");
+    #endif
+    if(log_mutex_initialized){
+        pthread_mutex_unlock(&auxiliary_shm->log_mutex);
+    }
 
     return;
 }
@@ -92,7 +95,7 @@ void print_shared_memory(){
     printf("DEBUG# Printing current state of the shared memory...\n");
     #endif
 
-    sem_wait(log_semaphore); // Wait to access stdout
+    pthread_mutex_lock(&auxiliary_shm->log_mutex); // LOCK LOG MUTEX
     printf("\033[1;37m");
 
     int total_users = shared_memory->num_users;
@@ -148,8 +151,9 @@ void print_shared_memory(){
     }
 
     printf("\033[0m\n\n");
+    pthread_mutex_unlock(&auxiliary_shm->log_mutex);
+   // sem_post(log_semaphore); // Release stdout
 
-    sem_post(log_semaphore); // Release stdout
 }
 
 // Sleeps for the specified amount of milliseconds
@@ -192,8 +196,8 @@ void print_queues(int color){
             break;
     }
 
-    sem_wait(log_semaphore); // Wait to access stdout
-
+    //sem_wait(log_semaphore); // Wait to access stdout
+    pthread_mutex_lock(&auxiliary_shm->log_mutex); // LOCK LOG MUTEX
     printf("\n-> Current state of the queues <-\n");
 
     pthread_mutex_lock(&queues_mutex);
@@ -206,7 +210,9 @@ void print_queues(int color){
     printf("\n\033[0m");
 
     pthread_mutex_unlock(&queues_mutex);
-    sem_post(log_semaphore); // Release stdout
+
+    pthread_mutex_unlock(&auxiliary_shm->log_mutex); // UNLOCK LOG MUTEX
+    //sem_post(log_semaphore); // Release stdout
 }
 
 unsigned long long get_time_millis(){

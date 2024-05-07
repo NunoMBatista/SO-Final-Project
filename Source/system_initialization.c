@@ -85,6 +85,8 @@ int initialize_system(char* config_file){
         return 1;
     }
 
+    log_mutex_initialized = 1;
+
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating auth manager...\n");
     #endif

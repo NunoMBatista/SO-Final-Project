@@ -32,8 +32,6 @@
 // Cleans up the system, called by the signal handler
 void clean_up(){
     signal(SIGINT, SIG_IGN); // Ignore SIGINT while cleaning up
-
-    //printf("\033[31m\tTHIS PID: %d\n\tARM PID: %d\n\tPARENT PID: %d\n\033[0m\n\n", getpid(), arm_pid, parent_pid);
     
     // Notify ARM to exit
     #ifdef DEBUG

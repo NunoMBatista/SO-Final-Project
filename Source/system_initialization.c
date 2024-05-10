@@ -84,8 +84,8 @@ int initialize_system(char* config_file){
     if(create_shared_memory() != 0){
         return 1;
     }
-
     log_mutex_initialized = 1;
+
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating auth manager...\n");
@@ -117,7 +117,7 @@ int read_config_file(char *filename){
     FILE* config_file = fopen(filename, "r");
     if(config_file == NULL){
         write_to_log("<ERROR OPENING CONFIG FILE>");
-        exit(1);
+        return 1;
     }
 
     #ifdef DEBUG

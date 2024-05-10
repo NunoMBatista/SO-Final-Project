@@ -181,6 +181,7 @@ void print_progress(int current, int max){
     printf("] %d%%\n", (int)(current * 100.0 / max));
 }
 
+// Calls print_progress on both of the queues
 void print_queues(int color){
     /*
         Color:
@@ -215,6 +216,7 @@ void print_queues(int color){
     //sem_post(log_semaphore); // Release stdout
 }
 
+// Gets the current timestamp in milliseconds
 unsigned long long get_time_millis(){
     struct timeval tv;
     gettimeofday(&tv, NULL);

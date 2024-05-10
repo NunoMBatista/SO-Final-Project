@@ -6,13 +6,6 @@
 #ifndef SYSTEM_MANAGER_STARTUP_H
 #define SYSTEM_MANAGER_STARTUP_H
 
-/*
-  To Implement:
-
-  Time limit on queue requests 
-
-*/
-
 // --> main function in system_manager.c <--
 
 // Initialization (system_initialization.c)
@@ -52,7 +45,7 @@ void *periodic_notifications_thread();
 void clean_up();
 void signal_handler(int signal);
 void notify_arm_threads();
-void kill_auth_engine(int signal);
+//void kill_auth_engine(int signal);
 
 // MISC (general_functions.c)
 void write_to_log(char *message);

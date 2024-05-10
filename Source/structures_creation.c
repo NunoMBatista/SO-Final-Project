@@ -46,7 +46,7 @@ int create_monitor_engine(){
     if(monitor_pid == 0){
         // Set process name
         memset(process_name, 0, process_name_size);
-        strcpy(process_name, "MONITOR_ENGINE");
+        strcpy(process_name, "5G_MONITOR_ENGINE");
 
         monitor_pid = getpid();
         current_process = MONITOR_ENGINE;
@@ -172,7 +172,7 @@ int create_shared_memory(){
     }
     
     // Initialize shared mutex and condition variables
-    pthread_mutexattr_t shared_mutex;
+    // pthread_mutexattr_t shared_mutex;
     pthread_mutexattr_init(&shared_mutex); // Initialize mutex attributes
     pthread_mutexattr_setpshared(&shared_mutex, PTHREAD_PROCESS_SHARED); // Share mutex between processes
     if(pthread_mutex_init(&auxiliary_shm->monitor_engine_mutex, &shared_mutex) != 0){
@@ -180,7 +180,7 @@ int create_shared_memory(){
         return 1;
     }
 
-    pthread_condattr_t shared_cond;
+    // pthread_condattr_t shared_cond;
     pthread_condattr_init(&shared_cond); // Initialize condition variable attributes
     pthread_condattr_setpshared(&shared_cond, PTHREAD_PROCESS_SHARED); // Share condition variable between processes
     if(pthread_cond_init(&auxiliary_shm->monitor_engine_cond, &shared_cond) != 0){
@@ -188,7 +188,7 @@ int create_shared_memory(){
         return 1;
     }
 
-    pthread_mutexattr_t log_mutex_attr;
+    // pthread_mutexattr_t log_mutex_attr;
     pthread_mutexattr_init(&log_mutex_attr);
     pthread_mutexattr_setpshared(&log_mutex_attr, PTHREAD_PROCESS_SHARED);
     if(pthread_mutex_init(&auxiliary_shm->log_mutex, &log_mutex_attr) != 0){
@@ -225,17 +225,6 @@ int create_semaphores(){
     sem_unlink(LOG_SEMAPHORE);
     sem_close(shared_memory_sem);
     sem_unlink(SHARED_MEMORY_SEMAPHORE);
-
-    // #ifdef DEBUG
-    // printf("DEBUG# Creating log mutex...\n");
-    // #endif
-    // pthread_mutexattr_t log_mutex_attr;
-    // pthread_mutexattr_init(&log_mutex_attr);
-    // pthread_mutexattr_setpshared(&log_mutex_attr, PTHREAD_PROCESS_SHARED);
-    // if(pthread_mutex_init(&auxiliary_shm->log_mutex, &log_mutex_attr) != 0){
-    //     write_to_log("<ERROR INITIALIZING LOG MUTEX>");
-    //     return 1;
-    // }
 
     #ifdef DEBUG
     printf("DEBUG# Creating log semaphore...\n");
@@ -279,7 +268,7 @@ int create_auth_manager(){
     if(arm_pid == 0){
         // Set process name
         memset(process_name, 0, process_name_size);
-        strcpy(process_name, "ARM");
+        strcpy(process_name, "5G_ARM");
         
         arm_pid = getpid();
         current_process = ARM;
@@ -380,7 +369,7 @@ int create_auth_engines(){
             // Set process name
             memset(process_name, 0, process_name_size);
             char process_str[40];
-            sprintf(process_str, "AUTH_ENGINE%d", i);
+            sprintf(process_str, "5G_AUTH_ENGINE%d", i);
             strcpy(process_name, process_str);
 
             arm_pid = getppid();
@@ -400,7 +389,6 @@ int create_auth_engines(){
             // Parent process (ARM)
             write_to_log("PROCESS AUTHORIZATION_ENGINE CREATED");
             close(auth_engine_pipes[i][0]); // Close read end of the pipe
-
         }
     }
     return 0; 

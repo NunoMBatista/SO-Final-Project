@@ -105,12 +105,16 @@ extern int shm_id; // General shared memory id
 extern int shm_id_users; // Shared memory id for users
 extern sem_t *shared_memory_sem;
 
-
 extern AuxiliaryShm *auxiliary_shm;
 extern int aux_shm_id;
 extern int engines_shm_id;
 extern sem_t *engines_sem; // Semaphore with value config->AUTH_SERVERS to control the number of active auth engines
 extern sem_t *aux_shm_sem; // Binary semaphore to control access to auxiliary shared memory
+extern pthread_mutexattr_t shared_mutex;
+extern pthread_condattr_t shared_cond;
+extern pthread_mutexattr_t log_mutex_attr;
+
+
 
 extern sem_t* log_semaphore;
 

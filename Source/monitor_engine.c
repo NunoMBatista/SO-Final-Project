@@ -105,7 +105,9 @@ void monitor_engine_process(){
                 
                 if(percentage_spent >= 100){
                     // Deactivate user
-                    deactivate_user(current_user.user_id, i);
+                    if(deactivate_user(current_user.user_id, i) != -1){
+                        write_to_log("Exit message successfully send to user");
+                    }
                 }
             }
         }
@@ -124,6 +126,7 @@ void monitor_engine_process(){
 
 }
 
+// Send notifications to the backoffice user in intervals of 30 seconds
 void *periodic_notifications_thread(){
     while(1){
         sleep(30);
@@ -161,7 +164,7 @@ void *periodic_notifications_thread(){
     }
 }
 
-// Deactivates a user, called by the auth engines
+// Deactivates a user, called by the monitor engine
 int deactivate_user(int user_id, int user_index){
     shared_memory->users[user_index].isActive = 0;
     shared_memory->num_users--;
@@ -171,13 +174,14 @@ int deactivate_user(int user_id, int user_index){
     sprintf(qmsg.text, "DIE");
     
     if(msgsnd(message_queue_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
-        write_to_log("Error sending message to monitor engine");
+        write_to_log("Error sending exit message to user");
         return -1;
     }
 
     return 0;
 }
 
+// Notifies user about the amount of data spent
 int notify_user(int user_id, int percentage){
     QueueMessage qmsg; 
     qmsg.type = user_id; 

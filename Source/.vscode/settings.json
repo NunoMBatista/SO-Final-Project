@@ -68,6 +68,7 @@
     "stat.h": "c",
     "select.h": "c",
     "msg.h": "c",
-    "time.h": "c"
+    "time.h": "c",
+    "errno.h": "c"
   }
 }

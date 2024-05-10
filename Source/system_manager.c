@@ -45,6 +45,10 @@ int aux_shm_id;
 int engines_shm_id;
 sem_t *engines_sem;
 sem_t *aux_shm_sem;
+pthread_mutexattr_t shared_mutex;
+pthread_condattr_t shared_cond;
+pthread_mutexattr_t log_mutex_attr;
+
 
 // Mutex for the log file
 pthread_mutex_t log_mutex;
@@ -90,7 +94,7 @@ int main(int argc, char *argv[]){
     process_name_size = strlen(argv[0]);
     process_name = argv[0];
     memset(process_name, 0, process_name_size);
-    strcpy(process_name, "SYSTEM_MANAGER");
+    strcpy(process_name, "5G_SYSTEM_MANAGER");
 
     #ifdef DEBUG
     printf("<SYS MAN> Is process number %d\n", getpid());
@@ -124,7 +128,10 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    initialize_system(config_file);
+    if(initialize_system(config_file) != 0){
+        write_to_log("<SYSTEM INITIALIZATION FAILED>\n");
+        return 1;
+    };
 
     // Wait for all child processes to finish
     while(wait(NULL) > 0);

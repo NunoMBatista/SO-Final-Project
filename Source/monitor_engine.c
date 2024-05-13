@@ -31,6 +31,8 @@
 
 pthread_t periodic_notifications_t;
 
+volatile int monitor_exit = 0;
+
 // Monitor Engine main function
 // Will notify users once they have reached 80%, 90% and 100% of their plafond
 void monitor_engine_process(){
@@ -40,7 +42,11 @@ void monitor_engine_process(){
         // Wait for an authorization request to notify
         pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
         pthread_cond_wait(&auxiliary_shm->monitor_engine_cond, &auxiliary_shm->monitor_engine_mutex);
-        
+       
+        if(monitor_exit != 0){
+            exit(0);
+        }
+
         #ifdef DEBUG
         printf("<ME>DEBUG# Received signal to check users\n");
         printf("\033[33m<ME>DEBUG# Waiting for shared memory semaphore\033[0m\n");

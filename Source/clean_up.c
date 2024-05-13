@@ -65,9 +65,9 @@ void clean_up(){
     pthread_mutex_destroy(&queues_mutex);
     pthread_cond_destroy(&sender_cond);
 
-    // pthread_mutex_destroy(&auxiliary_shm->monitor_engine_mutex);    
-    // pthread_cond_destroy(&auxiliary_shm->monitor_engine_cond);
-    // pthread_mutex_destroy(&auxiliary_shm->log_mutex);
+    pthread_mutex_destroy(&auxiliary_shm->monitor_engine_mutex);    
+    pthread_cond_destroy(&auxiliary_shm->monitor_engine_cond);
+    pthread_mutex_destroy(&auxiliary_shm->log_mutex);
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Detatching and deleting the main shared memory\n");
@@ -171,6 +171,20 @@ void clean_up_arm(){
     pthread_join(sender_t, NULL);
     pthread_join(receiver_t, NULL);
 
+    // Write to log the unfufilled requests
+    Request req;
+    char unfufilled_request[PIPE_BUFFER_SIZE];    
+    while(!is_empty(video_queue)){
+        req = pop(video_queue);
+        sprintf(unfufilled_request, "Unfulfilled request: %d#%c#%d#%d", req.user_id, req.request_type, req.data_amount, req.initial_plafond);
+        write_to_log(unfufilled_request);
+    }
+    while(!is_empty(other_queue)){
+        req = pop(other_queue);
+        sprintf(unfufilled_request, "Unfulfilled request: %d#%c#%d#%d", req.user_id, req.request_type, req.data_amount, req.initial_plafond);
+        write_to_log(unfufilled_request);
+    }
+
     // Let the auth engines know they should exit
     for(int i = 0; i < config->AUTH_SERVERS + 1; i++){
         if(i == config->AUTH_SERVERS){ // The last auth engine is the extra one
@@ -197,7 +211,7 @@ void clean_up_arm(){
     #ifdef DEBUG
     printf("<ARM>DEBUG# Closing and freeing pipes\n");
     #endif        
-    // IMPLEMENT LATER
+    
     
     #ifdef DEBUG
     printf("<ARM>DEBUG# Freeing auth engine pids\n");
@@ -262,7 +276,13 @@ void signal_handler(int signal){
             pthread_cancel(periodic_notifications_t);
             pthread_join(periodic_notifications_t, NULL);
 
-            exit(0);
+            // Monitor engine exit flag
+            monitor_exit = 1;
+
+            // NOTIFY MONITOR ENGINE
+            pthread_mutex_lock(&auxiliary_shm->monitor_engine_mutex);
+            pthread_cond_signal(&auxiliary_shm->monitor_engine_cond);
+            pthread_mutex_unlock(&auxiliary_shm->monitor_engine_mutex);
         }
         if(current_process == ARM){
             #ifdef DEBUG

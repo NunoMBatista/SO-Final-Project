@@ -304,7 +304,7 @@ int create_auth_manager(){
         pthread_join(receiver_t, NULL);
         pthread_join(sender_t, NULL);
 
-        exit(2);
+        exit(0);
     }
 
     // Parent process

@@ -140,6 +140,8 @@ extern pthread_t receiver_t;
 extern pthread_t sender_t;
 extern volatile sig_atomic_t arm_threads_exit; // 1 if the arm threads should exit, 0 otherwise
 
+extern volatile int monitor_exit; // 1 if the monitor engine should exit, 0 otherwise
+
 extern volatile sig_atomic_t auth_engine_exit;
 extern pid_t *auth_engine_pids; // Array with the pids of the main auth engines (not the extra one)
 extern int auth_engine_index; // Index of the current auth engine (changes between different auth engines) used in kill_auth_engine

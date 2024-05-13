@@ -28,6 +28,7 @@ void* sender_thread();
 void* receiver_thread();
 void deploy_extra_engine();
 void parse_and_send(char *message);
+void remove_extra_engine();
 
 // Authentication Engine functions (auth_engine.c)
 int auth_engine_process(int id);

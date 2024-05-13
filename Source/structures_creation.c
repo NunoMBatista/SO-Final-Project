@@ -172,7 +172,7 @@ int create_shared_memory(){
     }
     
     // Initialize shared mutex and condition variables
-    // pthread_mutexattr_t shared_mutex;
+    pthread_mutexattr_t shared_mutex;
     pthread_mutexattr_init(&shared_mutex); // Initialize mutex attributes
     pthread_mutexattr_setpshared(&shared_mutex, PTHREAD_PROCESS_SHARED); // Share mutex between processes
     if(pthread_mutex_init(&auxiliary_shm->monitor_engine_mutex, &shared_mutex) != 0){
@@ -180,7 +180,7 @@ int create_shared_memory(){
         return 1;
     }
 
-    // pthread_condattr_t shared_cond;
+    pthread_condattr_t shared_cond;
     pthread_condattr_init(&shared_cond); // Initialize condition variable attributes
     pthread_condattr_setpshared(&shared_cond, PTHREAD_PROCESS_SHARED); // Share condition variable between processes
     if(pthread_cond_init(&auxiliary_shm->monitor_engine_cond, &shared_cond) != 0){
@@ -188,7 +188,7 @@ int create_shared_memory(){
         return 1;
     }
 
-    // pthread_mutexattr_t log_mutex_attr;
+    pthread_mutexattr_t log_mutex_attr;
     pthread_mutexattr_init(&log_mutex_attr);
     pthread_mutexattr_setpshared(&log_mutex_attr, PTHREAD_PROCESS_SHARED);
     if(pthread_mutex_init(&auxiliary_shm->log_mutex, &log_mutex_attr) != 0){
@@ -251,7 +251,6 @@ int create_semaphores(){
     #ifdef DEBUG
     printf("DEBUG# Shared memory semaphore created successfully\n");
     #endif
-
 
     return 0;
 }

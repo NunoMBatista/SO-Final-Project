@@ -52,7 +52,7 @@ void clean_up(){
     kill(monitor_pid, SIGTERM);
 
     write_to_log("Waiting for monitor engine to finish");
-    waitpid(monitor_pid, &status, 0);
+    //waitpid(monitor_pid, &status, 0);
 
     write_to_log("5G_AUTH_PLATFORM SIMULATOR CLOSING");
 
@@ -165,11 +165,27 @@ void clean_up(){
 
 // Cleans up the ARM process and it's structures
 void clean_up_arm(){     
-    // Notify ARM threads to exit
+    // Notify ARM threads to exit    
     notify_arm_threads();
 
-    pthread_join(sender_t, NULL);
+    #ifdef DEBUG
+    printf("<ARM>DEBUG# Waiting for ARM threads to finish\n");
+    #endif
     pthread_join(receiver_t, NULL);
+
+    #ifdef DEBUG
+    printf("<ARM>DEBUG# Receiver thread finished\n");
+    #endif
+
+    pthread_join(sender_t, NULL);
+
+    #ifdef DEBUG
+    printf("<ARM>DEBUG# Sender thread finished\n");
+    #endif
+
+    #ifdef DEBUG
+    printf("<ARM>DEBUG# ARM threads finished\n");
+    #endif
 
     // Write to log the unfufilled requests
     Request req;
@@ -185,15 +201,23 @@ void clean_up_arm(){
         write_to_log(unfufilled_request);
     }
 
+    //extra_auth_engine = 0;
     // Let the auth engines know they should exit
     for(int i = 0; i < config->AUTH_SERVERS + 1; i++){
         if(i == config->AUTH_SERVERS){ // The last auth engine is the extra one
             if(!extra_auth_engine){ // Only kill it if it's active
                 continue;
             }
+            #ifdef DEBUG
+            printf("<ARM>DEBUG# Killing extra auth engine\n");
+            #endif
+            extra_auth_engine = 0;
             kill(extra_auth_pid, SIGTERM);
         }
         else{
+            #ifdef DEBUG
+            printf("<ARM>DEBUG# Killing auth engine %d\n", i);
+            #endif
             kill(auth_engine_pids[i], SIGTERM);
         }
 
@@ -210,9 +234,13 @@ void clean_up_arm(){
     // Close and free every pipe
     #ifdef DEBUG
     printf("<ARM>DEBUG# Closing and freeing pipes\n");
-    #endif        
-    
-    
+    #endif       
+    for(int i = 0; i < config->AUTH_SERVERS + 1; i++){
+        close(auth_engine_pipes[i][1]);
+        free(auth_engine_pipes[i]);
+    }
+    free(auth_engine_pipes);
+ 
     #ifdef DEBUG
     printf("<ARM>DEBUG# Freeing auth engine pids\n");
     #endif
@@ -292,6 +320,9 @@ void signal_handler(int signal){
             exit(0);
         }
         if(current_process == AUTH_ENGINE){
+            #ifdef DEBUG
+            printf("<AE>DEBUG# Received SIGTERM\n");
+            #endif
             auth_engine_exit = 1;
         }
     }

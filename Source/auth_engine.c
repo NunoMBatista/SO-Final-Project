@@ -272,7 +272,7 @@ int auth_engine_process(int id){
     sem_wait(aux_shm_sem);
     auxiliary_shm->active_auth_engines[id] = 1;
     sem_post(aux_shm_sem);
-
+    
 
     #ifdef DEBUG
     printf("<AE%d>DEBUG# Auth engine exiting, freeing pipes...\n", id);

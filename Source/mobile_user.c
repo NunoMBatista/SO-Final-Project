@@ -418,12 +418,13 @@ void clean_up(){
     // Send a message to the message queue to signal the message thread to exit
     QueueMessage qmsg;
     qmsg.type = getpid();
-    strcpy(qmsg.text, EXIT_MESSAGE);
+    char exit_msg[PIPE_BUFFER_SIZE] = "DIE";
+    strcpy(qmsg.text, exit_msg);
     if(system_online == 1){
         #ifdef DEBUG
         printf("DEBUG# Sending message to message queue\n");
         #endif
-        if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), IPC_NOWAIT) == -1){
+        if(msgsnd(user_msq_id, &qmsg, sizeof(QueueMessage), 0) == -1){
             if(errno != EIDRM){
                 perror("<ERROR> Could not send message to message queue\n");
             }

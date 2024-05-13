@@ -32,12 +32,15 @@
 // Writes a message to the log file
 void write_to_log(char *message){
     // Wait if there is any process using the log file
-    #ifdef DEBUG
-    printf("<LOG>DEBUG# Locking log mutex\n");
-    #endif
-    //sem_wait(log_semaphore); 
+
     if(log_mutex_initialized){
+        #ifdef DEBUG
+        printf("<LOG>DEBUG# Waiting for log mutex\n");
+        #endif
         pthread_mutex_lock(&auxiliary_shm->log_mutex);
+        #ifdef DEBUG
+        printf("<LOG>DEBUG# Locked log mutex\n");
+        #endif
     }
 
     time_t current_time;
@@ -58,16 +61,16 @@ void write_to_log(char *message){
     // Print message to console
     switch(current_process){
         case SYSMAN:
-            printf("\033[33m");
+            printf("\033[1;33m");
             break;
         case ARM:
-            printf("\033[34m");
+            printf("\033[1;34m");
             break;
         case AUTH_ENGINE:
-            printf("\033[35m");
+            printf("\033[1;35m");
             break;
         case MONITOR_ENGINE:
-            printf("\033[36m");
+            printf("\033[1;36m");
             break;
     }
 
@@ -79,10 +82,10 @@ void write_to_log(char *message){
     fprintf(log_file, "[%s] %s\n", time_str, message);
 
     // Unlock the log semaphore
-    #ifdef DEBUG
-    printf("<LOG>DEBUG# Unlocking lock mutex\n");
-    #endif
     if(log_mutex_initialized){
+        #ifdef DEBUG
+        printf("<LOG>DEBUG# Unlocking log mutex\n");
+        #endif
         pthread_mutex_unlock(&auxiliary_shm->log_mutex);
     }
 
@@ -198,10 +201,13 @@ void print_queues(int color){
     }
 
     //sem_wait(log_semaphore); // Wait to access stdout
+    
     pthread_mutex_lock(&auxiliary_shm->log_mutex); // LOCK LOG MUTEX
+    
     printf("\n-> Current state of the queues <-\n");
 
-    pthread_mutex_lock(&queues_mutex);
+    //pthread_mutex_lock(&queues_mutex);
+
     printf("Video Queue:\n");
     print_progress(video_queue->num_elements, video_queue->max_elements);
 
@@ -210,7 +216,7 @@ void print_queues(int color){
 
     printf("\n\033[0m");
 
-    pthread_mutex_unlock(&queues_mutex);
+    //pthread_mutex_unlock(&queues_mutex);
 
     pthread_mutex_unlock(&auxiliary_shm->log_mutex); // UNLOCK LOG MUTEX
     //sem_post(log_semaphore); // Release stdout

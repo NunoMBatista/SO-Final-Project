@@ -7,7 +7,7 @@
 #define GLOBAL_H
 
 //#define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
-//#define DEBUG // Comment this line to remove debug messages
+#define DEBUG // Comment this line to remove debug messages
 #define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
@@ -110,9 +110,9 @@ extern int aux_shm_id;
 extern int engines_shm_id;
 extern sem_t *engines_sem; // Semaphore with value config->AUTH_SERVERS to control the number of active auth engines
 extern sem_t *aux_shm_sem; // Binary semaphore to control access to auxiliary shared memory
-extern pthread_mutexattr_t shared_mutex;
-extern pthread_condattr_t shared_cond;
-extern pthread_mutexattr_t log_mutex_attr;
+// extern pthread_mutexattr_t shared_mutex;
+// extern pthread_condattr_t shared_cond;
+// extern pthread_mutexattr_t log_mutex_attr;
 
 
 

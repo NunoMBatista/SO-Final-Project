@@ -90,6 +90,12 @@ void* sender_thread(){
             #endif
         }
         // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
+
+        // If both queues reach 50% capacity, the extra auth engine is deactivated
+        // if((!arm_threads_exit) && (extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
+
+        // }
+
         pthread_mutex_unlock(&queues_mutex);
 
         unsigned long long time_taken = get_time_millis() - message.start_time;
@@ -109,7 +115,7 @@ void* sender_thread(){
             }
         }
 
-        //#ifdef DEBUG
+        #ifdef DEBUG
         int sem_value;
         sem_getvalue(engines_sem, &sem_value);
         if(sem_value == 0){
@@ -118,7 +124,7 @@ void* sender_thread(){
         else{
             printf("<SENDER>DEBUG# There are %d available engines\n", sem_value);
         }
-        //#endif
+        #endif
         // Wait until an auth engine is available
         sem_wait(engines_sem);
         
@@ -152,34 +158,6 @@ void* sender_thread(){
         #ifdef DEBUG    
         printf("<SENDER>DEBUG# Queue status:\n\tVideo: %d/%d\n\tOther: %d/%d\n\tExtra Engine: %d\n", video_queue->num_elements, video_queue->max_elements, other_queue->num_elements, other_queue->max_elements, extra_auth_engine); 
         #endif
-
-
-        pthread_mutex_lock(&queues_mutex); // Check queues in mutual exclusion
-        // If both queues reach 50% capacity, the extra auth engine is deactivated
-        if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
-            #ifdef DEBUG
-            printf("<SENDER>DEBUG# Both queues are at 50%% capacity, deactivating extra auth engine\n");
-            #endif
-           
-            extra_auth_engine = 0;
-            sem_wait(engines_sem);
-
-            // Send dummy message to the extra auth engine to unblock it
-            Request dummy;
-            dummy.user_id = -1;
-            dummy.request_type = 'K'; 
-            write(auth_engine_pipes[config->AUTH_SERVERS][1], &dummy, sizeof(Request));
-            kill(extra_auth_pid, SIGTERM);
-
-            #ifdef DEBUG
-            printf("<SENDER>DEBUG# Dummy message sent to extra auth engine, waiting for it to \n");
-            #endif
-            waitpid(extra_auth_pid, NULL, 0); // Wait for the extra auth engine to terminate
-
-            write_to_log("EXTRA AUTHORIZATION ENGINE DEACTIVATED");
-        }
-
-        pthread_mutex_unlock(&queues_mutex);
 
 
         #ifdef QUEUE_PROGRESS_BAR
@@ -289,7 +267,7 @@ void deploy_extra_engine(){
         // Set process name
         memset(process_name, 0, process_name_size);
         char process_str[40];
-        sprintf(process_str, "AUTH_ENGINE%d", config->AUTH_SERVERS);
+        sprintf(process_str, "5G_AUTH_ENGINE%d", config->AUTH_SERVERS);
         strcpy(process_name, process_str);
         
         current_process = AUTH_ENGINE;
@@ -461,6 +439,10 @@ void parse_and_send(char *message){
         }
     }
 
+    if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
+        remove_extra_engine();
+    }
+
     // Deploy extra auth engine if any of the queues is full and the extra auth engine is not active
     if((is_full(other_queue) || is_full(video_queue)) && (!extra_auth_engine)){
         deploy_extra_engine();
@@ -475,4 +457,31 @@ void parse_and_send(char *message){
     #endif
     
     pthread_mutex_unlock(&queues_mutex);    
+}
+
+void remove_extra_engine(){
+    #ifdef DEBUG
+    printf("<SENDER>DEBUG# Both queues are at 50%% capacity, deactivating extra auth engine\n");
+    #endif
+    
+    extra_auth_engine = 0;
+    sem_wait(engines_sem);
+    kill(extra_auth_pid, SIGTERM);
+
+    // Send dummy message to the extra auth engine to unblock it
+    Request dummy;
+    dummy.user_id = -1;
+    dummy.request_type = 'K'; 
+    write(auth_engine_pipes[config->AUTH_SERVERS][1], &dummy, sizeof(Request));
+
+    #ifdef DEBUG
+    printf("<SENDER>DEBUG# Dummy message sent to extra auth engine, waiting for it to \n");
+    #endif
+    waitpid(extra_auth_pid, NULL, 0); // Wait for the extra auth engine to terminate
+
+    write_to_log("EXTRA AUTHORIZATION ENGINE DEACTIVATED");
+
+    #ifdef DEBUG
+    printf("<SENDER>DEBUG# Extra auth engine deactivated\n");
+    #endif
 }

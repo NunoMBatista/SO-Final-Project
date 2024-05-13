@@ -7,7 +7,7 @@
 #define GLOBAL_H
 
 //#define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
-#define DEBUG // Comment this line to remove debug messages
+//#define DEBUG // Comment this line to remove debug messages
 #define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
@@ -129,7 +129,7 @@ extern int message_queue_id;
 extern pthread_mutex_t queues_mutex; 
 extern pthread_cond_t sender_cond;
 
-extern int extra_auth_engine; // 0 if it's not active, 1 otherwise
+extern volatile int extra_auth_engine; // 0 if it's not active, 1 otherwise
 extern pid_t extra_auth_pid; // PID of the extra auth engine
 
 extern pid_t parent_pid; // PID of the parent process

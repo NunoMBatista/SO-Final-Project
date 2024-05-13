@@ -164,7 +164,7 @@ void clean_up(){
 }
 
 // Cleans up the ARM process and it's structures
-void clean_up_arm(){     
+void clean_up_arm(){
     // Notify ARM threads to exit    
     notify_arm_threads();
 
@@ -201,7 +201,7 @@ void clean_up_arm(){
         write_to_log(unfufilled_request);
     }
 
-    //extra_auth_engine = 0;
+    // extra_auth_engine = 0;
     // Let the auth engines know they should exit
     for(int i = 0; i < config->AUTH_SERVERS + 1; i++){
         if(i == config->AUTH_SERVERS){ // The last auth engine is the extra one
@@ -229,6 +229,9 @@ void clean_up_arm(){
 
 
     // Wait for the auth engines to leave
+    #ifdef DEBUG
+    printf("<ARM>DEBUG# Waiting for auth engines to finish\n");
+    #endif
     while(wait(NULL) > 0);
     
     // Close and free every pipe
@@ -265,13 +268,8 @@ void notify_arm_threads(){
     arm_threads_exit = 1;
 
     #ifdef DEBUG
-    printf("<ARM>DEBUG# Notifying sender thread\n");
+    printf("<ARM>DEBUG# Notifying receiver thread\n");
     #endif
-
-    // Notify sender thread in case it's waiting for a signal
-    pthread_mutex_lock(&queues_mutex);
-    pthread_cond_signal(&sender_cond);
-    pthread_mutex_unlock(&queues_mutex);
 
     #ifdef DEBUG
     printf("<ARM>DEBUG# Sending exit message to receiver thread\n");

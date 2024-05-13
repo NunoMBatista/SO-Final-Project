@@ -300,8 +300,10 @@ int create_auth_manager(){
         #endif
 
         // Wait for threads to finish
-        pthread_join(receiver_t, NULL);
-        pthread_join(sender_t, NULL);
+        // pthread_join(receiver_t, NULL);
+        // pthread_join(sender_t, NULL);
+
+        while(wait(NULL) > 0);
 
         exit(0);
     }

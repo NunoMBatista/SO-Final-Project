@@ -67,7 +67,7 @@ int message_queue_id;
 pthread_mutex_t queues_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t sender_cond = PTHREAD_COND_INITIALIZER;
 
-int extra_auth_engine = 0;
+volatile int extra_auth_engine = 0;
 pid_t extra_auth_pid = -1;
 
 pid_t parent_pid;

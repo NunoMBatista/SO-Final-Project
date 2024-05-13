@@ -199,14 +199,11 @@ void print_queues(int color){
             printf("\033[1;32m");
             break;
     }
-
-    //sem_wait(log_semaphore); // Wait to access stdout
-    
+   
     pthread_mutex_lock(&auxiliary_shm->log_mutex); // LOCK LOG MUTEX
     
     printf("\n-> Current state of the queues <-\n");
 
-    //pthread_mutex_lock(&queues_mutex);
 
     printf("Video Queue:\n");
     print_progress(video_queue->num_elements, video_queue->max_elements);
@@ -216,10 +213,8 @@ void print_queues(int color){
 
     printf("\n\033[0m");
 
-    //pthread_mutex_unlock(&queues_mutex);
 
     pthread_mutex_unlock(&auxiliary_shm->log_mutex); // UNLOCK LOG MUTEX
-    //sem_post(log_semaphore); // Release stdout
 }
 
 // Gets the current timestamp in milliseconds

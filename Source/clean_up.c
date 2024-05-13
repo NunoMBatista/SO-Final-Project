@@ -23,6 +23,7 @@
 #include <sys/msg.h>
 #include <sys/ipc.h>
 #include <ctype.h>
+#include <sys/ioctl.h>
 #include <sys/msg.h>
 
 #include "system_functions.h"
@@ -268,18 +269,31 @@ void notify_arm_threads(){
     arm_threads_exit = 1;
 
     #ifdef DEBUG
-    printf("<ARM>DEBUG# Notifying receiver thread\n");
-    #endif
-
-    #ifdef DEBUG
     printf("<ARM>DEBUG# Sending exit message to receiver thread\n");
     #endif
-
+  
+  
     // Send message to receiver thread in case it's waiting to read from a pipe
     char exit_message[PIPE_BUFFER_SIZE] = "EXIT";
-    if(write(fd_user_pipe, exit_message, PIPE_BUFFER_SIZE) == -1){
-        write_to_log("<ERROR SENDING EXIT MESSAGE TO RECEIVER THREAD>");
-    }
+    int bytes_available;
+    if (ioctl(fd_user_pipe, FIONREAD, &bytes_available) == -1) { 
+        write_to_log("<ERROR CHECKING PIPE>");
+    } 
+    else if (bytes_available == 0) {  // Only send the message if there are no bytes available in the pipe
+        #ifdef DEBUG
+        printf("<ARM>DEBUG# No bytes available in pipe, sending dummy message\n");
+        #endif
+
+        if(write(fd_user_pipe, exit_message, PIPE_BUFFER_SIZE) == -1){
+            write_to_log("<ERROR SENDING EXIT MESSAGE TO RECEIVER THREAD>");
+        }
+    
+        #ifdef DEBUG
+        printf("<ARM>DEBUG# Dummy message sent to receiver thread\n");
+        #endif
+    } 
+
+
 }
 
 // Signal handler for SIGINT

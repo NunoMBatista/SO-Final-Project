@@ -39,7 +39,6 @@ void* sender_thread(){
     #endif
     write_to_log("THREAD SENDER CREATED");
 
-    // JUST READ VIDEOQUEUE FOR NOW, IMPLEMENT THE OTHER QUEUE LATER
     while(1){
         if(arm_threads_exit){
             break;
@@ -89,8 +88,8 @@ void* sender_thread(){
             printf("<SENDER>DEBUG# Got [%d#%c#%d#%d] from the other queue\n", message.user_id, message.request_type, message.data_amount, message.initial_plafond);
             #endif
         }
-        // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
 
+        // Unlock receiver right after reading so it can keep pushing messages to the queue while the sender fetches an authorization engine
         pthread_mutex_unlock(&queues_mutex);
 
         unsigned long long time_taken = get_time_millis() - message.start_time;
@@ -104,8 +103,8 @@ void* sender_thread(){
         }
         else{
             if(time_taken > (unsigned long long)config->MAX_OTHERS_WAIT){
-                sprintf(exceeded_message, "VIDEO REQUEST EXCEEDED TIME LIMIT, DISCARDED [%d#%c#%d]", message.user_id, message.request_type, message.data_amount);
-                write_to_log("OTHER QUEUE REQUEST EXCEEDED TIME LIMIT, DISCARDED");
+                sprintf(exceeded_message, "OTHER REQUEST EXCEEDED TIME LIMIT, DISCARDED [%d#%c#%d]", message.user_id, message.request_type, message.data_amount);
+                write_to_log(exceeded_message);
                 continue;
             }
         }
@@ -235,10 +234,15 @@ void* receiver_thread(){
         #endif
     }
 
+    
+    
+    pthread_mutex_unlock(&queues_mutex);
+    
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Notifying sender thread\n");
     #endif
     pthread_cond_signal(&sender_cond);
+    pthread_mutex_unlock(&queues_mutex);
 
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Receiver thread exiting\n");
@@ -450,14 +454,14 @@ void parse_and_send(char *message){
     }
 
     // Notify sender thread
-    pthread_cond_signal(&sender_cond);
-    pthread_mutex_unlock(&queues_mutex);
-
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Notifying sender thread\n");
     #endif
+    pthread_cond_signal(&sender_cond);
+    pthread_mutex_unlock(&queues_mutex);
+
     
-    pthread_mutex_unlock(&queues_mutex);    
+    //pthread_mutex_unlock(&queues_mutex);    
 }
 
 void remove_extra_engine(){

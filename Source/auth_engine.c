@@ -123,7 +123,6 @@ int auth_engine_process(int id){
             
             // There's a need to tell the user if the request was accepted or rejected  
             response_applicable = 1; 
-        printf("\n\n\nIN I-AUTH_SHOULD_EXIT VALUE: %d REQUEST TYPE: %c\n", auth_engine_exit, request.request_type);
 
             return_code = add_mobile_user(request.user_id, request.initial_plafond);
             if(return_code == 0){

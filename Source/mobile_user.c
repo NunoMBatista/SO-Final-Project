@@ -152,12 +152,19 @@ int main(int argc, char *argv[]){
     printf("DEBUG# Waiting for the initial request to be accepted\n");
     #endif
     QueueMessage qmsg;
+
+    signal(SIGALRM, signal_handler);
+    alarm(10); // Set a 10 second timeout
+
     // Get messages with type equal to the user's pid
     if(msgrcv(user_msq_id, &qmsg, sizeof(QueueMessage), getpid(), 0) == -1){
         perror("<ERROR> Could not receive message from message queue\n");
         close(fd_user_pipe); // Close the pipe
         exit(1); // Exit the program, the only thing that needs to be cleaned up is the pipe
     }
+    
+    alarm(0); // Alarm canceled
+    
     #ifdef DEBUG
     printf("DEBUG# Initial request response received: %s\n", qmsg.text);
     #endif
@@ -434,7 +441,7 @@ void clean_up(){
 
     // Send a message to remove the user from the shared memory [IMPLEMENT LATER]
     char kill_message[PIPE_BUFFER_SIZE];
-    // This forces the user to be removed lmfao
+    // This forces the user to be removed 
     sprintf(kill_message, "%d#KILL", getpid());
     write(fd_user_pipe, kill_message, PIPE_BUFFER_SIZE);
 
@@ -473,8 +480,17 @@ void clean_up(){
 }
 
 void signal_handler(int sig){
+    if(sig == SIGALRM){
+        printf("<SIGNAL> SIGALRM received\n");
+        printf("<ERROR> The system did not respond in time\n");
+        printf("<ERROR> Exiting...\n");
+        exit(1);
+    }
+
+
     if(sig == SIGINT){
-        signal(SIGINT, SIG_IGN); // Ignore the signal
+        signal(SIGALRM, SIG_IGN); // Ignore SIGALRM
+        signal(SIGINT, SIG_IGN); // Ignore SIGINT
 
         printf("<SIGNAL> SIGINT received\n");
         

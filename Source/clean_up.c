@@ -65,10 +65,14 @@ void clean_up(){
     // Destroy mutexes and condition variables
     pthread_mutex_destroy(&queues_mutex);
     pthread_cond_destroy(&sender_cond);
-
     pthread_mutex_destroy(&auxiliary_shm->monitor_engine_mutex);    
     pthread_cond_destroy(&auxiliary_shm->monitor_engine_cond);
     pthread_mutex_destroy(&auxiliary_shm->log_mutex);
+
+    // Destroy mutex attributes structures
+    pthread_mutexattr_destroy(&shared_mutex);
+    pthread_condattr_destroy(&shared_cond);
+    pthread_mutexattr_destroy(&log_mutex_attr);
 
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Detatching and deleting the main shared memory\n");

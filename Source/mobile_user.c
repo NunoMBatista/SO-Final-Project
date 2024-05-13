@@ -52,7 +52,6 @@ void signal_handler(int sig);
 void clean_up();
 
 pthread_t request_threads[3];
-//pthread_mutex_t gen_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t exit_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t exit_signal = PTHREAD_COND_INITIALIZER;
@@ -244,10 +243,10 @@ int send_initial_request(int initial_plafond){
 
     char message[PIPE_BUFFER_SIZE];
     sprintf(message, "%d#%d", getpid(), initial_plafond);
-    write(fd_user_pipe, message, strlen(message) + 1);
-
-    // IMPLEMENTAR MAIS TARDE
-    // Esperar por uma mensagem da message queue, caso seja aceite, devolve 1, caso contrário devolve 0
+    if(write(fd_user_pipe, message, PIPE_BUFFER_SIZE) == -1){
+        perror("<ERROR> Could not write to user pipe\n");
+        return 1;
+    }
 
     #ifdef DEBUG
     printf("DEBUG# The user was registered, now proceeding\n");
@@ -301,8 +300,10 @@ void *send_requests(void *arg){
         printf("\t(>>) Sending %s!\n", message);
         printf("\033[0m"); // Reset the text color to default
 
-
-        write(fd_user_pipe, message, PIPE_BUFFER_SIZE);
+        if(write(fd_user_pipe, message, PIPE_BUFFER_SIZE) == -1){
+            perror("<ERROR> Could not write to user pipe\n");
+            threads_should_exit = 1;
+        }
         
         // Notify monitor to check exit condition
         pthread_cond_signal(&exit_signal);

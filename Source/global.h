@@ -77,6 +77,7 @@ typedef struct{
     MobileUserData *users;
 } SharedMemory; 
 
+
 // MIGHT REMOVE NESTED SHARED MEMORY AND JUST HAVE AN ARRAY OF ACTIVE AUTH ENGINES AS AUX SHM
 typedef struct{
     pthread_mutex_t monitor_engine_mutex;

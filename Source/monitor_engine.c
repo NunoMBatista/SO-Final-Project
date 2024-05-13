@@ -103,7 +103,24 @@ void monitor_engine_process(){
                     #ifdef DEBUG
                     printf("<ME>DEBUG# Notifying user %d that he has spent %d%% of his plafond\n", current_user.user_id, percentage_notification);
                     #endif
-                
+                    
+                    switch(percentage_notification){
+                        case 100:
+                            if(current_user.already_notified == 80){
+                                notify_user(current_user.user_id, 90);
+                            }
+                            else if(current_user.already_notified == 0){
+                                notify_user(current_user.user_id, 80);
+                                notify_user(current_user.user_id, 90);
+                            }
+                            break;
+                        case 90:
+                            if(current_user.already_notified == 0){
+                                notify_user(current_user.user_id, 80);
+                            }
+                            break;
+                    }
+
                     notify_user(current_user.user_id, percentage_notification);
                     // Make sure the user is not notified again
                     shared_memory->users[i].already_notified = percentage_notification;

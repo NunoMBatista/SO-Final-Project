@@ -376,6 +376,23 @@ void *message_receiver(){
             printf("\033[0m"); // Reset 
         }
 
+
+        char msg_copy[PIPE_BUFFER_SIZE];
+        strcpy(msg_copy, qmsg.text);
+        // Check if message is a data message (DATA#DATA_AMOUNT)
+        char *token = strtok(msg_copy, "#");
+        if(token != NULL){
+            if(strcmp(token, "DATA") == 0){
+                token = strtok(NULL, "#");
+                if(token != NULL){
+                    printf("\033[32m"); // Green
+                    printf("\t(<<) THE USER JUST SPENT [%d]\n", atoi(token));
+                    printf("\033[0m"); // Reset
+                }
+            }
+        }
+
+
         if((atoi(qmsg.text) == 100) || (strcmp(qmsg.text, EXIT_MESSAGE) == 0)){
             #ifdef DEBUG
             printf("<MESSAGE THREAD>DEBUG# Received exit message\n");
@@ -444,7 +461,9 @@ void clean_up(){
     char kill_message[PIPE_BUFFER_SIZE];
     // This forces the user to be removed 
     sprintf(kill_message, "%d#KILL", getpid());
-    write(fd_user_pipe, kill_message, PIPE_BUFFER_SIZE);
+    if(write(fd_user_pipe, kill_message, PIPE_BUFFER_SIZE) == -1){
+        perror("<ERROR> Could not write to user pipe\n");
+    }
 
     // Wait for the threads to exit
 

@@ -49,13 +49,6 @@ int auth_engine_process(int id){
     sem_post(engines_sem);
 
     while(1){
-        // if(auth_engine_exit){
-        //     #ifdef DEBUG
-        //     printf("<AE%d>DEBUG# Exiting...\n", id);
-        //     #endif
-        //     break;
-        // }
-
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is ready to receive a request\n", id);
         #endif
@@ -145,6 +138,9 @@ int auth_engine_process(int id){
         // It's a data request
         if((type == 'V') || (type == 'M') || (type == 'S')){
             int add_stats = request.data_amount; // The amount of data to add to the user stats
+            
+            response_applicable = 1;
+            sprintf(response, "DATA#%d", request.data_amount);
             
             return_code = remove_from_user(user_index, add_stats);
 

@@ -58,6 +58,7 @@
   "C_Cpp_Runner.msvcSecureNoWarnings": false,
   "files.associations": {
     "pthread.h": "c",
-    "system_functions.h": "c"
+    "system_functions.h": "c",
+    "select.h": "c"
   }
 }

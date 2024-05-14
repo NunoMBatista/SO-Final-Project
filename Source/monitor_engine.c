@@ -103,6 +103,10 @@ void monitor_engine_process(){
                     #ifdef DEBUG
                     printf("<ME>DEBUG# Notifying user %d that he has spent %d%% of his plafond\n", current_user.user_id, percentage_notification);
                     #endif
+
+                    char log_mess[PIPE_BUFFER_SIZE];;
+                    sprintf(log_mess, "NOTIFYING USER %d THAT HE HAS SPENT %d%% OF HIS PLAFOND", current_user.user_id, percentage_notification);
+                    write_to_log(log_mess);
                     
                     switch(percentage_notification){
                         case 100:

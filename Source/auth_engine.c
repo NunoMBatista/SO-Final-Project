@@ -48,10 +48,15 @@ int auth_engine_process(int id){
     // "Notify" the sender thread that an auth engine is available
     sem_post(engines_sem);
 
+
     while(1){
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is ready to receive a request\n", id);
         #endif
+
+        char log_mess[PIPE_BUFFER_SIZE];
+        sprintf(log_mess, "AUTHORIZATION_ENGINE %d READY", id);
+        write_to_log(log_mess);
 
         //char message[PIPE_BUFFER_SIZE];
         Request request;
@@ -72,6 +77,9 @@ int auth_engine_process(int id){
         #ifdef DEBUG
         printf("<AE%d>DEBUG# Auth engine is now processing a request:\n\tUSER: %d\n\tTYPE: %c\n\tDATA: %d\n\tINITPLAF: %d\n", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
         #endif
+
+        sprintf(log_mess, "AUTHORIZATION_ENGINE %d IS NOW PROCESSING REQUEST: USER %d, TYPE %c, DATA %d, INITPLAF %d", id, request.user_id, request.request_type, request.data_amount, request.initial_plafond);
+        write_to_log(log_mess);
 
         #ifdef SLOWMOTION
         sleep_milliseconds(config->AUTH_PROC_TIME * SLOWMOTION / 10);
@@ -141,7 +149,7 @@ int auth_engine_process(int id){
             
             response_applicable = 1;
             sprintf(response, "DATA#%d", request.data_amount);
-            
+
             return_code = remove_from_user(user_index, add_stats);
 
             // If the user had enough data and still has some left

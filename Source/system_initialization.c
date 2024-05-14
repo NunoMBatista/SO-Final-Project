@@ -45,6 +45,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating semaphores...\n");
     #endif
+    write_to_log("CREATING SEMAPHORES");
     if(create_semaphores() != 0){
         return 1;
     }
@@ -58,6 +59,7 @@ int initialize_system(char* config_file){
     // Allocate memory for the config struct
     config = (Config*) malloc(sizeof(Config));
     // Read the config file
+    write_to_log("READING CONFIG FILE");
     if(read_config_file(config_file) != 0){
         return 1;
     }
@@ -65,6 +67,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating message queue...\n");
     #endif
+    write_to_log("CREATING MESSAGE QUEUE");
     if(create_message_queue() != 0){
         return 1;
     }
@@ -74,6 +77,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("Creating auxiliary semaphores...\n");
     #endif
+    write_to_log("CREATING AUXILIARY SEMAPHORES");
     if(create_aux_semaphores() != 0){
         return 1;
     }
@@ -81,6 +85,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating shared memory...\n");
     #endif
+    write_to_log("CREATING SHARED MEMORY");
     if(create_shared_memory() != 0){
         return 1;
     }
@@ -90,6 +95,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating auth manager...\n");
     #endif
+    write_to_log("CREATING AUTH MANAGER");
     if(create_auth_manager() != 0){
         return 1;
     }
@@ -97,6 +103,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# Creating monitor engine...\n");
     #endif
+    write_to_log("CREATING MONITOR ENGINE");
     if(create_monitor_engine() != 0){
         return 1;
     }
@@ -105,7 +112,7 @@ int initialize_system(char* config_file){
     #ifdef DEBUG
     printf("<SYS MAN>DEBUG# System initialized successfully\n");
     #endif
-
+    write_to_log("SYSTEM INITIALIZED SUCCESSFULLY");
     return 0;
 }
 

@@ -27,6 +27,7 @@
 #include "global.h"
 
 #define EXIT_MESSAGE "DIE"
+#define TIMEOUT 60
 
 /*
     Execution instructions:
@@ -153,7 +154,7 @@ int main(int argc, char *argv[]){
     QueueMessage qmsg;
 
     signal(SIGALRM, signal_handler);
-    alarm(10); // Set a 10 second timeout
+    alarm(TIMEOUT); // Set a 10 second timeout
 
     // Get messages with type equal to the user's pid
     if(msgrcv(user_msq_id, &qmsg, sizeof(QueueMessage), getpid(), 0) == -1){

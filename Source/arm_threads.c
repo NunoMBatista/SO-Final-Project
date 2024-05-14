@@ -50,6 +50,11 @@ void* sender_thread(){
         printf("<SENDER>DEBUG# Sender thread checking queues in mutual exclusion\n");
         #endif
 
+        // If both queues reach 50% capacity, the extra auth engine is deactivated
+        if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
+            remove_extra_engine();
+        }
+
         while(is_empty(video_queue) && is_empty(other_queue)){
             // Wait to be notified and let other threads access the mutex
             #ifdef DEBUG
@@ -139,6 +144,10 @@ void* sender_thread(){
                 // Send message to auth engine and mark it as busy
                 auxiliary_shm->active_auth_engines[id] = 1;
                 
+                char log_mess[PIPE_BUFFER_SIZE + 50];
+                sprintf(log_mess, "SENDER THREAD: SENDING REQUEST [%d#%c#%d#%d] TO AUTH ENGINE %d", message.user_id, message.request_type, message.data_amount, message.initial_plafond, id);
+                write_to_log(log_mess);
+                
                 write(auth_engine_pipes[id][1], &message, sizeof(Request));
                 break;
             }
@@ -162,6 +171,7 @@ void* sender_thread(){
     #ifdef DEBUG
     printf("<SENDER>DEBUG# Sender thread exiting\n");
     #endif
+    write_to_log("SENDER THREAD EXITED");
     return NULL;
 }
 
@@ -222,6 +232,10 @@ void* receiver_thread(){
             break;
         }
 
+        char log_mess[PIPE_BUFFER_SIZE + 50];
+        sprintf(log_mess, "RECEIVER THREAD: RECEIVED MESSAGE [%s]", buffer);
+        write_to_log(log_mess);
+
         // Parse and send the message to one of the queues
         parse_and_send(buffer);
 
@@ -233,8 +247,7 @@ void* receiver_thread(){
         print_queues(1);
         #endif
     }
-
-    
+   
     
     pthread_mutex_unlock(&queues_mutex);
     
@@ -247,6 +260,7 @@ void* receiver_thread(){
     #ifdef DEBUG
     printf("<RECEIVER>DEBUG# Receiver thread exiting\n");
     #endif
+    write_to_log("RECEIVER THREAD EXITED");
     return NULL;
 }
 
@@ -444,9 +458,9 @@ void parse_and_send(char *message){
     }
 
     // If both queues reach 50% capacity, the extra auth engine is deactivated
-    if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
-        remove_extra_engine();
-    }
+    // if((extra_auth_engine == 1) && (video_queue->num_elements <= config->QUEUE_POS / 2) && (other_queue->num_elements <= config->QUEUE_POS / 2)){
+    //     remove_extra_engine();
+    // }
 
     // Deploy extra auth engine if any of the queues is full and the extra auth engine is not active
     if((is_full(other_queue) || is_full(video_queue)) && (!extra_auth_engine)){

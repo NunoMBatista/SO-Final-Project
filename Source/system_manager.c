@@ -49,7 +49,6 @@ pthread_mutexattr_t shared_mutex;
 pthread_condattr_t shared_cond;
 pthread_mutexattr_t log_mutex_attr;
 
-
 // Mutex for the log file
 pthread_mutex_t log_mutex;
 

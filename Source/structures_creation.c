@@ -282,7 +282,10 @@ int create_auth_manager(){
 
         write_to_log("PROCESS AUTHORIZATION_REQUEST_MANAGER CREATED");
         
+        write_to_log("CREATING AUTH ENGINES");
         create_auth_engines();
+        write_to_log("CREATED AUTH ENGINES");
+
 
         create_pipes();
         create_fifo_queues();
@@ -384,11 +387,11 @@ int create_auth_engines(){
             #ifdef DEBUG
             printf("<AE%d>DEBUG# Auth engine with PID %d exited\n", i, getpid());
             #endif
+
             exit(0); // Exit after receiving SIGTERM and processing the last request
         }
         else{
             // Parent process (ARM)
-            write_to_log("PROCESS AUTHORIZATION_ENGINE CREATED");
             close(auth_engine_pipes[i][0]); // Close read end of the pipe
         }
     }

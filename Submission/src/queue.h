@@ -1,3 +1,8 @@
+/*
+  Authors: 
+    Nuno Batista uc2022216127
+    Miguel Castela uc2022212972
+*/
 #ifndef QUEUE_H
 #define QUEUE_H
 

@@ -8,7 +8,7 @@
 
 //#define SLOWMOTION 100 // Comment this line to remove slow motion, it's value is the delta coefficient
 //#define DEBUG // Comment this line to remove debug messages
-//#define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
+#define QUEUE_PROGRESS_BAR // Comment this line to remove video and other queues progress bar
 #define SHARED_MEMORY_DISPLAY // Comment this line to remove shared memory display
 
 #define MAIN_LOCKFILE "/tmp/main_lockfile.lock"

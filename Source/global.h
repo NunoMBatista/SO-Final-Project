@@ -19,7 +19,7 @@
 #define AUXILIARY_SHM_SEMAPHORE "auxiliary_shm_semaphore"
 #define ENGINES_SEMAPHORE "engines_semaphore"
 
-#define MESSAGE_QUEUE_KEY "message_queue_key"#define MESSAGE_QUEUE_KEY "messag
+#define MESSAGE_QUEUE_KEY "message_queue_key"
 
 #define PIPE_BUFFER_SIZE 100
 #define USER_PIPE "/tmp/USER_PIPE"

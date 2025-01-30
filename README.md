@@ -1,1 +1,1 @@
-# SO-Final-Project
+Operative Systems course final project
